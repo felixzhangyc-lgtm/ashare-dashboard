@@ -1,0 +1,1983 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>A股市场数据交互式看板</title>
+  <script src="assets/echarts.min.js" onerror="this.onerror=null;this.src='https://registry.npmmirror.com/echarts/5.6.0/files/dist/echarts.min.js'"></script>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --border: #e3e7ec;
+      --ink: #1f2a33;
+      --muted: #637381;
+      --accent: #1f77b4;
+      --accent-soft: #eaf3fb;
+      --pos: #1a8a63;
+      --pos-bg: #e8f6f0;
+      --neg: #c43c3c;
+      --neg-bg: #fcecec;
+      --shadow: 0 2px 10px rgba(24, 39, 54, 0.05);
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .brand {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+    .brand .meta {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .nav-tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .nav-tab {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--ink);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .nav-tab:hover { border-color: var(--accent); color: var(--accent); }
+    .nav-tab.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+    .container {
+      max-width: 1520px;
+      margin: 0 auto;
+      padding: 18px 24px 48px;
+    }
+    .hint-bar {
+      background: #fffdf6;
+      border: 1px solid #f0e3bd;
+      color: #6b5620;
+      border-radius: 10px;
+      padding: 9px 14px;
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .kpi-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      transition: transform 0.12s ease, border-color 0.15s ease;
+    }
+    .kpi-card:hover { transform: translateY(-1px); border-color: #b7cadb; }
+    .kpi-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .kpi-date {
+      background: #f0f3f6;
+      padding: 2px 7px;
+      border-radius: 99px;
+      font-variant-numeric: tabular-nums;
+    }
+    .kpi-main {
+      font-size: 22px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      margin-bottom: 4px;
+    }
+    .kpi-sub {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+      font-variant-numeric: tabular-nums;
+    }
+    .pos { color: var(--pos); }
+    .neg { color: var(--neg); }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .card.hidden { display: none; }
+    .card.fullscreen {
+      position: fixed;
+      inset: 12px;
+      z-index: 100;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+    }
+    .card.fullscreen .chart-wrap {
+      flex: 1;
+      min-height: 0;
+    }
+    .card.fullscreen .chart-box {
+      height: 100% !important;
+    }
+    .card-header {
+      padding: 14px 18px 10px;
+      border-bottom: 1px solid #eef1f4;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .card-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .card-title-row h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .card-subtitle {
+      font-size: 12px;
+      color: var(--muted);
+      margin-left: 8px;
+      font-weight: 400;
+    }
+    .controls-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .btn-group {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      align-items: center;
+    }
+    .btn-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-right: 2px;
+    }
+    .btn {
+      border: 1px solid var(--border);
+      background: #f8fafb;
+      color: var(--ink);
+      padding: 4px 10px;
+      border-radius: 7px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.14s ease;
+    }
+    .btn:hover { background: var(--accent-soft); border-color: #9ec5e3; color: var(--accent); }
+    .btn.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+    .btn.ghost { background: #fff; }
+    .chart-wrap {
+      padding: 10px 14px 14px;
+      position: relative;
+    }
+    .chart-box {
+      width: 100%;
+      height: 540px;
+    }
+    .chart-box.tall {
+      height: 600px;
+    }
+    details.daily-box {
+      border-top: 1px solid #eef1f4;
+      padding: 10px 18px 14px;
+      background: #fafbfc;
+    }
+    details.daily-box summary {
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      user-select: none;
+    }
+    .rank-grid {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+      gap: 8px;
+    }
+    .rank-item {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .rank-pill {
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+    .rank-pill.pos { background: var(--pos-bg); color: var(--pos); }
+    .rank-pill.neg { background: var(--neg-bg); color: var(--neg); }
+    .backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(16, 24, 32, 0.45);
+      z-index: 90;
+    }
+    .backdrop.show { display: block; }
+    .empty-msg {
+      padding: 48px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .thermo-panel {
+      display: grid;
+      grid-template-columns: 1.35fr 1fr;
+      gap: 14px;
+      padding: 12px 18px;
+      background: #fafbfc;
+      border-bottom: 1px solid #eef1f4;
+      align-items: center;
+    }
+    .thermo-bar-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .thermo-bar-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--muted);
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .state-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .state-hot { background: #fdecec; color: #b82323; }
+    .state-warm { background: #fff3e0; color: #b66500; }
+    .state-mid { background: #edf2f7; color: #394b59; }
+    .state-cold { background: #e6f6f0; color: #167a58; }
+    .thermo-track {
+      position: relative;
+      height: 14px;
+      border-radius: 99px;
+      background: linear-gradient(90deg,
+        #167a58 0%,
+        #42b38c 16%,
+        #93c9b7 24%,
+        #d8e1e8 42%,
+        #f2c57c 64%,
+        #e06d53 76%,
+        #9e171b 100%);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    .thermo-pin {
+      position: absolute;
+      top: -5px;
+      width: 4px;
+      height: 24px;
+      border-radius: 2px;
+      transform: translateX(-50%);
+      box-shadow: 0 0 0 2px #fff;
+    }
+    .thermo-pin.today { background: #1f2a33; z-index: 3; }
+    .thermo-pin.ma20 { background: #c43c3c; z-index: 2; height: 18px; top: -2px; }
+    .thermo-ticks {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .ruler-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px 10px;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .ruler-item {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .ref-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 12px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .ref-table th, .ref-table td {
+      padding: 7px 10px;
+      border-bottom: 1px solid #eef1f4;
+      text-align: left;
+      font-variant-numeric: tabular-nums;
+    }
+    .ref-table th { background: #f4f6f8; color: var(--muted); font-weight: 600; }
+    .cycle-timer-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      padding: 12px 18px;
+      background: #f7f9fb;
+      border-bottom: 1px solid #eef1f4;
+    }
+    .timer-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 11px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+    .timer-card.alert-bear { border-left: 4px solid #b82323; }
+    .timer-card.alert-warn { border-left: 4px solid #d97706; }
+    .timer-card.alert-bot { border-left: 4px solid #167a58; }
+    .timer-card.alert-idle { border-left: 4px solid #9aa5b1; }
+    .timer-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .timer-progress {
+      position: relative;
+      height: 10px;
+      border-radius: 99px;
+      background: #edf1f5;
+      overflow: visible;
+    }
+    .timer-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.25s ease;
+    }
+    .timer-fill.bear { background: linear-gradient(90deg, #f2a65a, #c43c3c); }
+    .timer-fill.bot { background: linear-gradient(90deg, #6dc4a4, #167a58); }
+    .timer-mark {
+      position: absolute;
+      top: -3px;
+      width: 2px;
+      height: 16px;
+      background: #475569;
+    }
+    .timer-meta {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.55;
+      font-variant-numeric: tabular-nums;
+    }
+    @media (max-width: 960px) {
+      .thermo-panel, .cycle-timer-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .container { padding: 12px; }
+      .chart-box, .chart-box.tall { height: 420px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="backdrop" id="backdrop"></div>
+  <header class="topbar">
+    <div class="brand">
+      <h1>A股市场数据交互式看板</h1>
+      <span class="meta" id="gen-meta"></span>
+    </div>
+    <nav class="nav-tabs" id="nav-tabs">
+      <button class="nav-tab active" data-view="all">全部图表</button>
+      <button class="nav-tab" data-view="industry">1. 行业融资</button>
+      <button class="nav-tab" data-view="tech">2. 成长红利</button>
+      <button class="nav-tab" data-view="drawdown">3. 两融回撤</button>
+      <button class="nav-tab" data-view="turnover">4. 全A顶底温度计</button>
+      <button class="nav-tab" data-view="chinext">5. 创业板顶底温度计</button>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div class="hint-bar">
+      <span><strong>缩放技巧：</strong>图表内支持<strong>鼠标滚轮放大</strong>、<strong>拖拽平移</strong>、底部<strong>时间轴滑块</strong>，也可点右上角工具栏的「区域缩放」框选右侧局部，或点「全屏放大」单独精看（按 Esc 退出）。纵轴会随缩放区间自动拉伸。</span>
+    </div>
+
+    <section class="kpi-grid" id="kpi-grid"></section>
+
+    <!-- 1. Industry -->
+    <section class="card" id="card-industry" data-section="industry">
+      <div class="card-header">
+        <div class="card-title-row">
+          <div>
+            <h2>1. 申万一级行业累计融资净买入</h2>
+            <span class="card-subtitle" id="sub-industry"></span>
+          </div>
+          <div class="btn-group">
+            <button class="btn ghost" onclick="toggleFullscreen('card-industry')">全屏放大</button>
+          </div>
+        </div>
+        <div class="controls-row">
+          <div class="btn-group" id="range-industry">
+            <span class="btn-label">时间窗：</span>
+            <button class="btn" data-days="22">近1月</button>
+            <button class="btn" data-days="65">近3月</button>
+            <button class="btn" data-days="130">近6月</button>
+            <button class="btn" data-since="2025-06-01">2025/06至今</button>
+            <button class="btn active" data-since="2024-07-01">2024/07至今</button>
+            <button class="btn" data-all="1">全部</button>
+          </div>
+          <div class="btn-group" id="filter-industry">
+            <span class="btn-label">行业筛选：</span>
+            <button class="btn active" data-mode="all">全部(31)</button>
+            <button class="btn" data-mode="no-elec">隐藏「电子」</button>
+            <button class="btn" data-mode="top10">前10</button>
+            <button class="btn" data-mode="bottom10">后10</button>
+            <button class="btn" data-mode="none">清空自选</button>
+          </div>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <div id="chart-industry" class="chart-box tall"></div>
+      </div>
+      <details class="daily-box" id="industry-daily-box">
+        <summary id="industry-daily-summary">展开查看最新交易日申万一级行业融资日变化明细</summary>
+        <div class="rank-grid" id="industry-rank-grid"></div>
+      </details>
+    </section>
+
+    <!-- 2. Tech vs Dividend -->
+    <section class="card" id="card-tech" data-section="tech">
+      <div class="card-header">
+        <div class="card-title-row">
+          <div>
+            <h2>2. 成长（科创50 + 创业板各半）对比红利低波</h2>
+            <span class="card-subtitle" id="sub-tech"></span>
+          </div>
+          <div class="btn-group">
+            <button class="btn ghost" onclick="toggleFullscreen('card-tech')">全屏放大</button>
+          </div>
+        </div>
+        <div class="controls-row">
+          <div class="btn-group" id="range-tech">
+            <span class="btn-label">时间窗：</span>
+            <button class="btn" data-days="22">近1月</button>
+            <button class="btn" data-days="65">近3月</button>
+            <button class="btn" data-days="130">近6月</button>
+            <button class="btn active" data-since="2024-07-01">2024/07至今</button>
+            <button class="btn" data-all="1">全部</button>
+          </div>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <div id="chart-tech" class="chart-box"></div>
+      </div>
+    </section>
+
+    <!-- 3. Margin Drawdown -->
+    <section class="card" id="card-drawdown" data-section="drawdown">
+      <div class="card-header">
+        <div class="card-title-row">
+          <div>
+            <h2>3. 两融余额回撤、20日变化与创业板指</h2>
+            <span class="card-subtitle" id="sub-drawdown"></span>
+          </div>
+          <div class="btn-group">
+            <button class="btn ghost" onclick="toggleFullscreen('card-drawdown')">全屏放大</button>
+          </div>
+        </div>
+        <div class="controls-row">
+          <div class="btn-group" id="range-drawdown">
+            <span class="btn-label">时间窗：</span>
+            <button class="btn" data-days="65">近3月</button>
+            <button class="btn" data-days="130">近6月</button>
+            <button class="btn" data-days="252">近1年</button>
+            <button class="btn active" data-since="2024-07-01">2024/07至今</button>
+            <button class="btn" data-days="756">近3年</button>
+            <button class="btn" data-all="1">2016至今</button>
+          </div>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <div id="chart-drawdown" class="chart-box"></div>
+      </div>
+    </section>
+
+    <!-- 4. Market Turnover Peak/Trough Thermometer -->
+    <section class="card" id="card-turnover" data-section="turnover">
+      <div class="card-header">
+        <div class="card-title-row">
+          <div>
+            <h2>4. 全A流通换手率与上证指数（顶底温度计）</h2>
+            <span class="card-subtitle" id="sub-turnover"></span>
+          </div>
+          <div class="btn-group">
+            <button class="btn ghost" onclick="toggleFullscreen('card-turnover')">全屏放大</button>
+          </div>
+        </div>
+        <div class="controls-row">
+          <div class="btn-group" id="range-turnover">
+            <span class="btn-label">时间窗：</span>
+            <button class="btn" data-days="65">近3月</button>
+            <button class="btn" data-days="130">近6月</button>
+            <button class="btn" data-days="252">近1年</button>
+            <button class="btn active" data-since="2024-07-01">2024/07至今</button>
+            <button class="btn" data-days="756">近3年</button>
+            <button class="btn" data-since="2015-01-01">2015至今</button>
+            <button class="btn" data-all="1">2010全历史</button>
+          </div>
+          <div class="btn-group" id="mode-turnover">
+            <span class="btn-label">视角：</span>
+            <button class="btn active" data-mode="rate">换手率 + 上证</button>
+            <button class="btn" data-mode="pct">5年滚动分位 + 上证</button>
+          </div>
+          <div class="btn-group">
+            <button class="btn active" id="toggle-turnover-signals">牛熊/筑底信号：开</button>
+            <button class="btn active" id="toggle-turnover-anchors">历史极值锚点：开</button>
+          </div>
+        </div>
+      </div>
+      <div class="cycle-timer-grid" id="cycle-timer-panel"></div>
+      <div class="thermo-panel" id="thermo-panel"></div>
+      <div class="chart-wrap">
+        <div id="chart-turnover" class="chart-box tall"></div>
+      </div>
+      <details class="daily-box">
+        <summary>展开查看：历史牛转熊/筑底信号触发明细（无未来函数）与经典天量地量对照</summary>
+        <div id="turnover-signal-table"></div>
+        <table class="ref-table">
+          <thead>
+            <tr><th>类型</th><th>极值日期</th><th>全A成交额</th><th>全A流通换手率</th><th>后续指数顶/底</th><th>间隔时间</th><th>实战启示</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="state-badge state-hot">天量</span></td><td>2015-05-28</td><td>2.36 万亿</td><td>~4.7%</td><td>2015-06-12 上证 5178 顶</td><td>约 15 天</td><td>多空分歧极端放大，筹码交接后买盘耗尽</td></tr>
+            <tr><td><span class="state-badge state-hot">天量</span></td><td>2024-10-08</td><td>3.45 万亿</td><td>4.26%</td><td>2024-10-08 上证 3674 阶段顶</td><td>当天见顶</td><td>情绪脉冲极值，天量不追高</td></tr>
+            <tr><td><span class="state-badge state-hot">天量</span></td><td>2026-01-12</td><td>3.60 万亿</td><td>3.44%</td><td>2026-05-14 上证 4259 顶</td><td>约 4 个月</td><td>天量领先顶部 0-4 个月，MA20 高位钝化预警</td></tr>
+            <tr><td><span class="state-badge state-cold">地量</span></td><td>2012-11-26</td><td>627 亿</td><td>0.39%</td><td>2013-06-25 上证 1849 底</td><td>约 7 个月</td><td>历史最低换手率，分歧消失但磨底煎熬</td></tr>
+            <tr><td><span class="state-badge state-cold">地量</span></td><td>2018-09-17</td><td>2068 亿</td><td>0.55%</td><td>2019-01-04 上证 2440 底</td><td>约 3.5 个月</td><td>地量区域不割肉，分批布局右侧确认</td></tr>
+            <tr><td><span class="state-badge state-cold">地量</span></td><td>2024-08-13</td><td>4773 亿</td><td>0.75%</td><td>2024-09-18 上证 2689 底</td><td>约 1 个月</td><td>缩量至 1% 以下进入冷清底部区</td></tr>
+          </tbody>
+        </table>
+      </details>
+    </section>
+
+    <!-- 5. ChiNext Turnover Peak/Trough Thermometer -->
+    <section class="card" id="card-chinext" data-section="chinext">
+      <div class="card-header">
+        <div class="card-title-row">
+          <div>
+            <h2>5. 创业板流通换手率与创业板指（顶底温度计）</h2>
+            <span class="card-subtitle" id="sub-chinext"></span>
+          </div>
+          <div class="btn-group">
+            <button class="btn ghost" onclick="toggleFullscreen('card-chinext')">全屏放大</button>
+          </div>
+        </div>
+        <div class="controls-row">
+          <div class="btn-group" id="range-chinext">
+            <span class="btn-label">时间窗：</span>
+            <button class="btn" data-days="65">近3月</button>
+            <button class="btn" data-days="130">近6月</button>
+            <button class="btn" data-days="252">近1年</button>
+            <button class="btn active" data-since="2024-07-01">2024/07至今</button>
+            <button class="btn" data-days="756">近3年</button>
+            <button class="btn" data-since="2015-01-01">2015至今</button>
+            <button class="btn" data-all="1">2012全历史</button>
+          </div>
+          <div class="btn-group" id="mode-chinext">
+            <span class="btn-label">视角：</span>
+            <button class="btn active" data-mode="rate">换手率 + 创业板指</button>
+            <button class="btn" data-mode="pct">5年滚动分位 + 创业板指</button>
+          </div>
+          <div class="btn-group">
+            <button class="btn active" id="toggle-chinext-signals">牛熊/筑底信号：开</button>
+            <button class="btn active" id="toggle-chinext-anchors">历史极值锚点：开</button>
+          </div>
+        </div>
+      </div>
+      <div class="cycle-timer-grid" id="chinext-timer-panel"></div>
+      <div class="thermo-panel" id="chinext-thermo-panel"></div>
+      <div class="chart-wrap">
+        <div id="chart-chinext" class="chart-box tall"></div>
+      </div>
+      <details class="daily-box">
+        <summary>展开查看：创业板历次牛转熊/筑底信号触发明细（2012至今，无未来函数）与经典顶底对照</summary>
+        <div id="chinext-signal-table"></div>
+        <table class="ref-table">
+          <thead>
+            <tr><th>类型</th><th>极值日期</th><th>创业板成交额</th><th>创业板流通换手率</th><th>后续创业板指顶/底</th><th>实盘规律启示</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="state-badge state-hot">天量</span></td><td>2015-05-28</td><td>2,205 亿</td><td>6.19%</td><td>2015-06-05 创指 4037 大顶</td><td>创业板高弹性，换手率超 5%（P95）进入危险过热区</td></tr>
+            <tr><td><span class="state-badge state-hot">天量</span></td><td>2024-10-08</td><td>9,687 亿</td><td>9.10%</td><td>2024-11 阶段顶 2417</td><td>底部单周脉冲（MA20 仅 3.69%），需用 MA20≥4.0% 过滤</td></tr>
+            <tr><td><span class="state-badge state-hot">天量</span></td><td>2026-01-15</td><td>10,962 亿</td><td>7.02%（MA5 6.59%）</td><td>2026-06 满 95 日确认（3811）后腰斩至 2280</td><td>MA5≥5.0% 峰后 95 日未超精准逃离主跌浪</td></tr>
+            <tr><td><span class="state-badge state-cold">地量</span></td><td>2012-12-03</td><td>46.6 亿</td><td>1.73%</td><td>2012-12-04 历史大底 585</td><td>随后开启 7 倍大牛市</td></tr>
+            <tr><td><span class="state-badge state-cold">地量</span></td><td>2018-09-17</td><td>381 亿</td><td>1.49%</td><td>2018-10-19 大底 1184</td><td>深跌≥20% + MA5≤2.0% + 75 日未破，精准买在启动前夜</td></tr>
+            <tr><td><span class="state-badge state-cold">地量</span></td><td>2024-08-13</td><td>1,219 亿</td><td>1.77%</td><td>2024-09-18 大底 1482</td><td>缩至 2% 以下且前期已深跌 ≥20%，进入左侧安全区</td></tr>
+          </tbody>
+        </table>
+      </details>
+    </section>
+  </main>
+
+  <script>
+    const DATA = __DASHBOARD_DATA__;
+    const charts = {};
+
+    const signed = (v, digits = 2) => {
+      const n = Number(v);
+      return (n >= 0 ? "+" : "") + n.toFixed(digits);
+    };
+
+    const pctFromDates = (dates, opts) => {
+      if (!dates || dates.length <= 1) return [0, 100];
+      if (opts.all) return [0, 100];
+      let startIdx = 0;
+      if (opts.since) {
+        startIdx = dates.findIndex(d => d >= opts.since);
+        if (startIdx < 0) startIdx = 0;
+      } else if (opts.days) {
+        startIdx = Math.max(0, dates.length - opts.days);
+      }
+      return [(startIdx / (dates.length - 1)) * 100, 100];
+    };
+
+    const commonToolbox = (filename) => ({
+      right: 16,
+      top: 2,
+      feature: {
+        dataZoom: { yAxisIndex: false, title: { zoom: "框选放大", back: "撤销框选" } },
+        restore: { title: "还原缩放" },
+        saveAsImage: { name: filename, pixelRatio: 2, title: "导出PNG" }
+      }
+    });
+
+    function buildKpis() {
+      document.getElementById("gen-meta").textContent = `看板生成于 ${DATA.generatedAt}`;
+      const grid = document.getElementById("kpi-grid");
+      const items = [];
+
+      if (DATA.industry) {
+        const ind = DATA.industry;
+        const cls = ind.totalDailyNetBuy >= 0 ? "pos" : "neg";
+        const topIn = ind.dailyRanking[0];
+        const topOut = ind.dailyRanking[ind.dailyRanking.length - 1];
+        items.push({
+          target: "industry",
+          title: "行业总融资余额",
+          date: ind.latestDate,
+          main: ind.totalBalance ? `${ind.totalBalance.toFixed(2)} 亿元` : "—",
+          sub: `当日净买入 <strong class="${cls}">${signed(ind.totalDailyNetBuy)} 亿</strong>` +
+            (ind.dailyChangeVsPrev !== null ? `（较前日 ${signed(ind.dailyChangeVsPrev)} 亿）` : "") +
+            `<br/>最前：${topIn.name} ${signed(topIn.delta)} ｜ 最后：${topOut.name} ${signed(topOut.delta)}`
+        });
+      }
+
+      if (DATA.tech) {
+        const t = DATA.tech;
+        const g = t.growth[t.growth.length - 1];
+        const d = t.dividend[t.dividend.length - 1];
+        const sp = t.spread[t.spread.length - 1];
+        items.push({
+          target: "tech",
+          title: "成长 vs 红利收益差",
+          date: t.latestDate,
+          main: `<span class="${sp >= 0 ? "pos" : "neg"}">${signed(sp)} 个百分点</span>`,
+          sub: `成长组合 <strong class="${g >= 0 ? "pos" : "neg"}">${signed(g)}%</strong> ｜ 红利低波 <strong class="${d >= 0 ? "pos" : "neg"}">${signed(d)}%</strong><br/>成长峰值 ${t.peakDate}（${signed(t.peakGrowth)}%）`
+        });
+      }
+
+      if (DATA.drawdown) {
+        const dd = DATA.drawdown;
+        const i = dd.dates.length - 1;
+        items.push({
+          target: "drawdown",
+          title: "全市场两融回撤",
+          date: dd.latestDate,
+          main: `<span class="neg">${dd.drawdown[i].toFixed(2)}%</span>`,
+          sub: `两融余额 ${dd.balance[i].toFixed(2)} 亿元 ｜ 20日变化 <strong class="${dd.speed[i] >= 0 ? "pos" : "neg"}">${signed(dd.speed[i])} pp</strong><br/>创业板指 ${dd.chinext[i].toFixed(2)}`
+        });
+      }
+
+      if (DATA.turnover) {
+        const tv = DATA.turnover;
+        const i = tv.dates.length - 1;
+        const cur = tv.turnover[i];
+        const cls = cur >= 3.0 ? "state-hot" : cur >= 2.2 ? "state-warm" : cur <= 1.0 ? "state-cold" : "state-mid";
+        items.push({
+          target: "turnover",
+          title: "全A流通换手率（温度计）",
+          date: tv.latestDate,
+          main: `${cur.toFixed(2)}% <span class="state-badge ${cls}">${tv.latestState}</span>`,
+          sub: `MA5 ${tv.ma5[i].toFixed(2)}% ｜ MA20 ${tv.ma20[i].toFixed(2)}% ｜ 5年分位 ${tv.pct5y[i].toFixed(1)}%<br/>成交额 ${(tv.totalAmountYi[i] / 10000).toFixed(2)} 万亿 / 流通市值 ${tv.floatCapWanYi[i].toFixed(2)} 万亿`
+        });
+      }
+
+      if (DATA.chinextTurnover) {
+        const cy = DATA.chinextTurnover;
+        const i = cy.dates.length - 1;
+        const cur = cy.turnover[i];
+        const cls = cur >= 5.0 ? "state-hot" : cur >= 3.8 ? "state-warm" : cur <= 2.0 ? "state-cold" : "state-mid";
+        items.push({
+          target: "chinext",
+          title: "创业板流通换手率（温度计）",
+          date: cy.latestDate,
+          main: `${cur.toFixed(2)}% <span class="state-badge ${cls}">${cy.latestState}</span>`,
+          sub: `MA5 ${cy.ma5[i].toFixed(2)}% ｜ MA20 ${cy.ma20[i].toFixed(2)}% ｜ 5年分位 ${cy.pct5y[i].toFixed(1)}%<br/>成交额 ${cy.amountYi[i].toFixed(0)} 亿 / 流通市值 ${(cy.floatCapYi[i] / 10000).toFixed(2)} 万亿`
+        });
+      }
+
+      grid.innerHTML = items.map(it => `
+        <div class="kpi-card" onclick="jumpToSection('${it.target}')">
+          <div class="kpi-head"><span>${it.title}</span><span class="kpi-date">${it.date}</span></div>
+          <div class="kpi-main">${it.main}</div>
+          <div class="kpi-sub">${it.sub}</div>
+        </div>
+      `).join("");
+    }
+
+    function bindRangeButtons(containerId, chartKey, dates, onCustom) {
+      const box = document.getElementById(containerId);
+      if (!box) return;
+      box.querySelectorAll("button").forEach(btn => {
+        btn.addEventListener("click", () => {
+          box.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          const [start, end] = pctFromDates(dates, {
+            all: !!btn.dataset.all,
+            since: btn.dataset.since,
+            days: btn.dataset.days ? Number(btn.dataset.days) : null
+          });
+          if (onCustom) {
+            onCustom(start, end);
+          } else if (charts[chartKey]) {
+            charts[chartKey].dispatchAction({ type: "dataZoom", start, end });
+          }
+        });
+      });
+    }
+
+    function initIndustry() {
+      const el = document.getElementById("chart-industry");
+      const ind = DATA.industry;
+      if (!ind) {
+        el.innerHTML = '<div class="empty-msg">未找到行业融资 CSV 数据。</div>';
+        return;
+      }
+      document.getElementById("sub-industry").textContent =
+        `截至 ${ind.latestDate}（共 ${ind.dates.length} 个交易日，自 2025 年初累计，单位：亿元）`;
+
+      const [initStart, initEnd] = pctFromDates(ind.dates, { since: "2024-07-01" });
+      const chart = echarts.init(el);
+      charts.industry = chart;
+
+      const deltaLookup = {};
+      ind.series.forEach(s => { deltaLookup[s.name] = s.deltas; });
+
+      chart.setOption({
+        animation: false,
+        tooltip: {
+          trigger: "axis",
+          confine: true,
+          axisPointer: { type: "line" },
+          formatter: (params) => {
+            if (!params || !params.length) return "";
+            const idx = params[0].dataIndex;
+            const date = params[0].axisValue;
+            const sorted = [...params].sort((a, b) => b.value - a.value);
+            const shown = sorted.length > 14 ? sorted.slice(0, 12) : sorted;
+            let html = `<div style="font-weight:700;margin-bottom:6px;">${date}（显示 ${shown.length}/${sorted.length} 行业）</div>`;
+            html += `<div style="display:grid;grid-template-columns:auto auto auto;gap:2px 12px;font-size:12px;font-variant-numeric:tabular-nums;">`;
+            shown.forEach(p => {
+              const d = deltaLookup[p.seriesName]?.[idx] ?? 0;
+              const dColor = d >= 0 ? "#1a8a63" : "#c43c3c";
+              html += `<span>${p.marker}${p.seriesName}</span><span style="text-align:right;font-weight:600;">${Number(p.value).toFixed(2)} 亿</span><span style="text-align:right;color:${dColor};">日 ${signed(d)}</span>`;
+            });
+            html += `</div>`;
+            if (sorted.length > shown.length) {
+              html += `<div style="margin-top:4px;color:#8a9499;font-size:11px;">提示：可用上方筛选按钮或点击图例减少行业以查看全部</div>`;
+            }
+            return html;
+          }
+        },
+        toolbox: commonToolbox("industry_margin_interactive"),
+        legend: {
+          type: "plain",
+          bottom: 48,
+          left: 20,
+          right: 20,
+          itemWidth: 14,
+          itemHeight: 8,
+          textStyle: { fontSize: 12, color: "#26323a" }
+        },
+        grid: { left: 72, right: 24, top: 72, bottom: 168 },
+        xAxis: {
+          type: "category",
+          data: ind.dates,
+          boundaryGap: false,
+          axisLine: { lineStyle: { color: "#8a9499" } }
+        },
+        yAxis: {
+          type: "value",
+          name: "累计净买入（亿元）",
+          nameGap: 14,
+          scale: true,
+          splitLine: { lineStyle: { color: "#eceff2" } }
+        },
+        dataZoom: [
+          { type: "inside", start: initStart, end: initEnd, zoomOnMouseWheel: true, moveOnMouseMove: true },
+          { type: "slider", bottom: 8, height: 28, start: initStart, end: initEnd }
+        ],
+        series: ind.series.map((s, rank) => ({
+          name: s.name,
+          type: "line",
+          data: s.values,
+          showSymbol: false,
+          smooth: false,
+          lineStyle: { width: rank < 5 ? 2.4 : 1.4, color: s.color },
+          itemStyle: { color: s.color },
+          emphasis: { focus: "series", lineStyle: { width: 3.2 } }
+        }))
+      });
+
+      bindRangeButtons("range-industry", "industry", ind.dates);
+
+      // Industry filter buttons
+      const filterBox = document.getElementById("filter-industry");
+      filterBox.querySelectorAll("button").forEach(btn => {
+        btn.addEventListener("click", () => {
+          filterBox.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          const mode = btn.dataset.mode;
+          const selected = {};
+          const total = ind.series.length;
+          ind.series.forEach((s, i) => {
+            if (mode === "all") selected[s.name] = true;
+            else if (mode === "no-elec") selected[s.name] = s.name !== "电子";
+            else if (mode === "top10") selected[s.name] = i < 10;
+            else if (mode === "bottom10") selected[s.name] = i >= total - 10;
+            else if (mode === "none") selected[s.name] = false;
+          });
+          chart.setOption({ legend: { selected } });
+        });
+      });
+
+      // Daily ranking table
+      document.getElementById("industry-daily-summary").textContent =
+        `展开查看 ${ind.latestDate} 相对 ${ind.prevDate} 行业融资净买入日变化（合计 ${signed(ind.totalDailyNetBuy)} 亿元）`;
+      document.getElementById("industry-rank-grid").innerHTML = ind.dailyRanking.map(r => `
+        <div class="rank-item">
+          <span>${r.name}</span>
+          <span class="rank-pill ${r.delta >= 0 ? "pos" : "neg"}">${signed(r.delta)}</span>
+        </div>
+      `).join("");
+    }
+
+    function initTech() {
+      const el = document.getElementById("chart-tech");
+      const t = DATA.tech;
+      if (!t) {
+        el.innerHTML = '<div class="empty-msg">未找到成长红利对比 CSV 数据。</div>';
+        return;
+      }
+      document.getElementById("sub-tech").textContent =
+        `截至 ${t.latestDate}（基准日 2025-12-31，共 ${t.dates.length} 个交易日）`;
+
+      const [initStart, initEnd] = pctFromDates(t.dates, { since: "2024-07-01" });
+      const chart = echarts.init(el);
+      charts.tech = chart;
+
+      chart.setOption({
+        animation: false,
+        tooltip: {
+          trigger: "axis",
+          confine: true,
+          axisPointer: { type: "cross" },
+          formatter: (params) => {
+            if (!params || !params.length) return "";
+            const i = params[0].dataIndex;
+            const sp = t.spread[i];
+            return `
+              <div style="font-weight:700;margin-bottom:5px;">${t.dates[i]}</div>
+              <div style="font-size:12px;line-height:1.7;font-variant-numeric:tabular-nums;">
+                <div><span style="color:#b67b00;">●</span> 成长组合累计收益率：<strong>${signed(t.growth[i])}%</strong></div>
+                <div><span style="color:#8055aa;">●</span> 红利低波累计收益率：<strong>${signed(t.dividend[i])}%</strong></div>
+                <div><span style="color:${sp >= 0 ? "#1a8a63" : "#c43c3c"};">■</span> 成长减红利差值：<strong>${signed(sp)} 个百分点</strong></div>
+                <hr style="border:none;border-top:1px solid #eee;margin:4px 0;"/>
+                <div style="color:#637381;">科创50ETF：${t.star[i]} ｜ 创业板ETF：${t.chinext[i]} ｜ 红利低波ETF：${t.dividendPrice[i]}</div>
+              </div>`;
+          }
+        },
+        toolbox: commonToolbox("tech_vs_dividend_interactive"),
+        legend: { bottom: 44, textStyle: { fontSize: 12 } },
+        grid: { left: 68, right: 76, top: 72, bottom: 94 },
+        xAxis: { type: "category", data: t.dates, axisLine: { lineStyle: { color: "#8a9499" } } },
+        yAxis: [
+          {
+            type: "value",
+            name: "累计收益率 (%)",
+            nameGap: 14,
+            scale: true,
+            axisLabel: { formatter: "{value}%" },
+            splitLine: { lineStyle: { color: "#eceff2" } }
+          },
+          {
+            type: "value",
+            name: "差值 (百分点)",
+            nameGap: 14,
+            scale: true,
+            splitLine: { show: false }
+          }
+        ],
+        dataZoom: [
+          { type: "inside", start: initStart, end: initEnd, zoomOnMouseWheel: true, moveOnMouseMove: true },
+          { type: "slider", bottom: 8, height: 26, start: initStart, end: initEnd }
+        ],
+        series: [
+          {
+            name: "差值（成长-红利，百分点）",
+            type: "bar",
+            yAxisIndex: 1,
+            barMaxWidth: 10,
+            data: t.spread.map(v => ({
+              value: v,
+              itemStyle: { color: v >= 0 ? "rgba(106,169,157,0.52)" : "rgba(216,139,139,0.58)" }
+            }))
+          },
+          {
+            name: "科创50 + 创业板各半",
+            type: "line",
+            yAxisIndex: 0,
+            showSymbol: false,
+            data: t.growth,
+            lineStyle: { width: 2.8, color: "#b67b00" },
+            itemStyle: { color: "#b67b00" }
+          },
+          {
+            name: "红利低波 ETF",
+            type: "line",
+            yAxisIndex: 0,
+            showSymbol: false,
+            data: t.dividend,
+            lineStyle: { width: 2.8, color: "#8055aa" },
+            itemStyle: { color: "#8055aa" }
+          }
+        ]
+      });
+
+      bindRangeButtons("range-tech", "tech", t.dates);
+    }
+
+    function initDrawdown() {
+      const el = document.getElementById("chart-drawdown");
+      const dd = DATA.drawdown;
+      if (!dd) {
+        el.innerHTML = '<div class="empty-msg">未找到两融回撤 CSV 数据。</div>';
+        return;
+      }
+      document.getElementById("sub-drawdown").textContent =
+        `2016-01-04 至 ${dd.latestDate}（共 ${dd.dates.length} 个交易日，默认显示 2024-07-01 至今，拖动底部标尺可查看 2016 年起全部历史）`;
+
+      const [initStart, initEnd] = pctFromDates(dd.dates, { since: "2024-07-01" });
+      const chart = echarts.init(el);
+      charts.drawdown = chart;
+
+      chart.setOption({
+        animation: false,
+        tooltip: {
+          trigger: "axis",
+          confine: true,
+          axisPointer: { type: "cross" },
+          formatter: (params) => {
+            if (!params || !params.length) return "";
+            const i = params[0].dataIndex;
+            return `
+              <div style="font-weight:700;margin-bottom:5px;">${dd.dates[i]}</div>
+              <div style="font-size:12px;line-height:1.7;font-variant-numeric:tabular-nums;">
+                <div><span style="color:#8d1115;">●</span> 相对近一年高点回撤：<strong>${dd.drawdown[i].toFixed(2)}%</strong></div>
+                <div><span style="color:#e77b19;">●</span> 回撤20交易日变化：<strong>${signed(dd.speed[i])} 个百分点</strong></div>
+                <div><span style="color:#2e6894;">●</span> 创业板指收盘点位：<strong>${dd.chinext[i].toFixed(2)}</strong></div>
+                <hr style="border:none;border-top:1px solid #eee;margin:4px 0;"/>
+                <div style="color:#637381;">两融余额：${dd.balance[i].toFixed(2)} 亿元 ｜ 近一年高点：${dd.peak[i].toFixed(2)} 亿元</div>
+              </div>`;
+          }
+        },
+        toolbox: commonToolbox("margin_drawdown_interactive"),
+        legend: { bottom: 44, textStyle: { fontSize: 12 } },
+        grid: { left: 66, right: 158, top: 72, bottom: 94 },
+        xAxis: { type: "category", data: dd.dates, boundaryGap: false, axisLine: { lineStyle: { color: "#8a9499" } } },
+        yAxis: [
+          {
+            type: "value",
+            name: "回撤 (%)",
+            nameGap: 14,
+            scale: true,
+            axisLabel: { formatter: "{value}%" },
+            splitLine: { lineStyle: { color: "#eceff2" } }
+          },
+          {
+            type: "value",
+            name: "20日变化(pp)",
+            nameGap: 14,
+            position: "right",
+            scale: true,
+            axisLine: { show: true, lineStyle: { color: "#e77b19" } },
+            splitLine: { show: false }
+          },
+          {
+            type: "value",
+            name: "创业板指",
+            nameGap: 14,
+            position: "right",
+            offset: 86,
+            scale: true,
+            axisLine: { show: true, lineStyle: { color: "#2e6894" } },
+            splitLine: { show: false }
+          }
+        ],
+        dataZoom: [
+          { type: "inside", start: initStart, end: initEnd, zoomOnMouseWheel: true, moveOnMouseMove: true },
+          { type: "slider", bottom: 8, height: 26, start: initStart, end: initEnd }
+        ],
+        series: [
+          {
+            name: "相对近一年高点回撤",
+            type: "line",
+            yAxisIndex: 0,
+            showSymbol: false,
+            data: dd.drawdown,
+            lineStyle: { width: 1.9, color: "#8d1115" },
+            itemStyle: { color: "#8d1115" },
+            areaStyle: { color: "rgba(141,17,21,0.14)", origin: "start" }
+          },
+          {
+            name: "回撤较20交易日前变化",
+            type: "line",
+            yAxisIndex: 1,
+            showSymbol: false,
+            data: dd.speed,
+            lineStyle: { width: 1.3, color: "#e77b19" },
+            itemStyle: { color: "#e77b19" }
+          },
+          {
+            name: "创业板指收盘点位",
+            type: "line",
+            yAxisIndex: 2,
+            showSymbol: false,
+            data: dd.chinext,
+            lineStyle: { width: 1.6, color: "#2e6894" },
+            itemStyle: { color: "#2e6894" }
+          }
+        ]
+      });
+
+      bindRangeButtons("range-drawdown", "drawdown", dd.dates);
+    }
+
+    function initTurnover() {
+      const el = document.getElementById("chart-turnover");
+      const tv = DATA.turnover;
+      if (!tv) {
+        el.innerHTML = '<div class="empty-msg">未找到全A换手率 CSV 数据（可运行 turnover 更新）。</div>';
+        return;
+      }
+      const last = tv.dates.length - 1;
+      const curTr = tv.turnover[last];
+      const curMa5 = tv.ma5[last];
+      const curMa20 = tv.ma20[last];
+      const curCap = tv.floatCapWanYi[last];
+      const curSh = tv.shIndex[last];
+      const curMa60 = tv.shMa60[last];
+      document.getElementById("sub-turnover").textContent =
+        `${tv.firstDate} 至 ${tv.latestDate}（共 ${tv.dates.length} 个交易日，口径：沪深成交额 ÷ 全A流通市值；盘后由沪深交易所官方流通市值实时补齐）`;
+
+      // Render Bull->Bear & Bottoming Cycle Timers Panel
+      const pk = tv.peakInfo;
+      const trk = tv.troughInfo;
+      let bearCardCls = "alert-idle", bearBadgeCls = "state-mid", bearBadgeText = "无活跃天量峰";
+      let bearDays = pk ? pk.days : 0;
+      let bearPct = Math.min(100, (bearDays / 95) * 100);
+      let bearMeta = `规则：MA5≥2.2%(且MA20≥1.8%)创120日新高后，连续 40日未超+上证破60线=预警，连续 95日未超=牛转熊确认。`;
+      if (pk) {
+        const belowMa60 = curSh < curMa60;
+        if (bearDays >= 95) {
+          bearCardCls = "alert-bear"; bearBadgeCls = "state-hot"; bearBadgeText = `牛转熊已确认（${bearDays} / 95 日）`;
+        } else if (bearDays >= 40 && belowMa60) {
+          bearCardCls = "alert-warn"; bearBadgeCls = "state-warm"; bearBadgeText = `牛转熊预警中（${bearDays} / 95 日）`;
+        } else {
+          bearCardCls = "alert-warn"; bearBadgeCls = "state-mid"; bearBadgeText = `天量退潮计数（${bearDays} / 95 日）`;
+        }
+        const shChg = ((curSh / pk.sh) - 1) * 100;
+        bearMeta = `近1年MA5天量峰：<strong>${pk.date}（${pk.ma5.toFixed(2)}%，上证 ${pk.sh.toFixed(0)}）</strong>，已连续 <strong>${bearDays} 个交易日</strong>未超越（上证较峰 ${signed(shChg, 1)}%）。<br/>` +
+          `上证收盘 <strong>${curSh.toFixed(2)}</strong> vs 60日线 <strong>${curMa60.toFixed(2)}</strong>（${belowMa60 ? '<span class="neg">已跌破季度线</span>' : '<span class="pos">站稳季度线上</span>'}）｜40日预警线在 42% 刻度，95日确认线在满格。`;
+      }
+
+      let botCardCls = "alert-idle", botBadgeCls = "state-mid", botBadgeText = "尚未进入地量区";
+      let botDays = trk ? trk.days : 0;
+      let botPct = Math.min(100, (botDays / 75) * 100);
+      let botMeta = `当前 MA5 换手率 <strong>${curMa5.toFixed(2)}%</strong>，距地量门槛（≤0.90%）仍高 <strong>+${Math.max(0, curMa5 - 0.90).toFixed(2)}%</strong>（按最新 ${curCap.toFixed(2)} 万亿流通市值需缩至约 <strong>${(curCap * 0.009).toFixed(2)} 万亿</strong> 以下启动计时）。<br/>` +
+        `上证距近1年高点回撤 <strong>${tv.shDd252Latest.toFixed(1)}%</strong>（${tv.shDd252Latest <= -10 ? '已满足≥10%低位过滤条件' : '未达≥10%回撤条件'}）；进入地量后需熬过 <strong>75 个交易日</strong>不再更低方确认筑底。`;
+      if (trk) {
+        if (botDays >= 75) {
+          botCardCls = "alert-bot"; botBadgeCls = "state-cold"; botBadgeText = `筑底已确认（${botDays} / 75 日）`;
+        } else {
+          botCardCls = "alert-bot"; botBadgeCls = "state-warm"; botBadgeText = `地量筑底计数（${botDays} / 75 日）`;
+        }
+        botMeta = `合格地量谷：<strong>${trk.date}（MA5=${trk.ma5.toFixed(2)}%，上证 ${trk.sh.toFixed(0)}）</strong>，已连续 <strong>${botDays} 个交易日</strong>未再破新低（距谷底已变动 <strong>${signed(trk.upSince, 1)}%</strong>）。<br/>` +
+          (trk.upSince >= 15 ? `提示：确认时较谷底涨幅已超 15%，注意防范二次回踩，宜等回踩不破地量再布局。` : `提示：处于低位横盘筑底区间，历史回测满 75 日后大概率进入左侧安全区。`);
+      }
+
+      document.getElementById("cycle-timer-panel").innerHTML = `
+        <div class="timer-card ${bearCardCls}">
+          <div class="timer-head">
+            <span>牛转熊计时器（顶部退潮监控）</span>
+            <span class="state-badge ${bearBadgeCls}">${bearBadgeText}</span>
+          </div>
+          <div class="timer-progress">
+            <div class="timer-fill bear" style="width:${bearPct}%;"></div>
+            <div class="timer-mark" style="left:${(40 / 95) * 100}%;" title="40日预警线 (+跌破MA60)"></div>
+          </div>
+          <div class="timer-meta">${bearMeta}</div>
+        </div>
+        <div class="timer-card ${botCardCls}">
+          <div class="timer-head">
+            <span>地量筑底计时器（底部确认监控）</span>
+            <span class="state-badge ${botBadgeCls}">${botBadgeText}</span>
+          </div>
+          <div class="timer-progress">
+            <div class="timer-fill bot" style="width:${botPct}%;"></div>
+          </div>
+          <div class="timer-meta">${botMeta}</div>
+        </div>
+      `;
+
+      // Render historical causal signal table
+      const sigTableBox = document.getElementById("turnover-signal-table");
+      if (sigTableBox && tv.signalEvents && tv.signalEvents.length) {
+        const rowsHtml = [...tv.signalEvents].reverse().map(ev => {
+          const bCls = ev.kind === "牛转熊确认" ? "state-hot" : ev.kind === "牛转熊预警" ? "state-warm" : "state-cold";
+          const ruleTxt = ev.kind === "牛转熊确认" ? `MA5峰后连续 ${ev.days} 日未超越`
+            : ev.kind === "牛转熊预警" ? `MA5峰后 ${ev.days} 日未超 + 上证破MA60`
+            : `低位地量谷后连续 ${ev.days} 日未破新低`;
+          return `<tr>
+            <td><span class="state-badge ${bCls}">${ev.kind}</span></td>
+            <td>${ev.date}</td>
+            <td>${ev.sh.toFixed(2)}</td>
+            <td>${ev.refDate}（MA5 ${ev.refMa5.toFixed(2)}%，上证 ${ev.refSh.toFixed(0)}）</td>
+            <td>${ruleTxt}</td>
+          </tr>`;
+        }).join("");
+        sigTableBox.innerHTML = `
+          <div style="font-size:12px;font-weight:700;margin:8px 0 4px;color:#1f2a33;">历次周期信号触发记录（2010至今，严格无未来函数，最新在前）</div>
+          <table class="ref-table" style="margin-bottom:12px;">
+            <thead><tr><th>信号类型</th><th>触发日期</th><th>触发日上证</th><th>对应前序极值峰/谷</th><th>触发规则</th></tr></thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+          <div style="font-size:12px;font-weight:700;margin:8px 0 4px;color:#1f2a33;">经典历史天量见顶 / 地量见底复盘对照</div>
+        `;
+      }
+
+      // Render thermometer bar & dynamic implied amount thresholds
+      const clampPos = (v) => Math.max(0, Math.min(100, ((v - 0.3) / (4.5 - 0.3)) * 100));
+      const badgeCls = curTr >= 3.0 ? "state-hot" : curTr >= 2.2 ? "state-warm" : curTr <= 1.0 ? "state-cold" : "state-mid";
+      document.getElementById("thermo-panel").innerHTML = `
+        <div class="thermo-bar-wrap">
+          <div class="thermo-bar-head">
+            <span><strong>实时市场温度：</strong><span class="state-badge ${badgeCls}">${tv.latestState}</span></span>
+            <span>■ 当日 <strong>${curTr.toFixed(2)}%</strong>（黑标） ｜ <span style="color:#c43c3c;">■ MA20 <strong>${curMa20.toFixed(2)}%</strong>（红标）</span> ｜ 近5年分位 <strong>${tv.pct5y[last].toFixed(1)}%</strong></span>
+          </div>
+          <div class="thermo-track">
+            <div class="thermo-pin ma20" style="left:${clampPos(curMa20)}%;" title="MA20: ${curMa20.toFixed(2)}%"></div>
+            <div class="thermo-pin today" style="left:${clampPos(curTr)}%;" title="当日: ${curTr.toFixed(2)}%"></div>
+          </div>
+          <div class="thermo-ticks">
+            <span>0.3% 极冷</span>
+            <span>1.0% 地量线（勿割）</span>
+            <span>2.0% 常态中枢</span>
+            <span>3.0% 过热线（勿追）</span>
+            <span>4.5% 极端天量</span>
+          </div>
+        </div>
+        <div class="ruler-grid">
+          <div class="ruler-item"><span style="color:#b82323;font-weight:600;">4.0% 极端天量需成交</span><strong>${(curCap * 0.04).toFixed(2)} 万亿</strong></div>
+          <div class="ruler-item"><span style="color:#d14927;font-weight:600;">3.0% 过热警戒需成交</span><strong>${(curCap * 0.03).toFixed(2)} 万亿</strong></div>
+          <div class="ruler-item"><span style="color:#167a58;font-weight:600;">1.0% 低谷冷清需缩至</span><strong>${(curCap * 0.01).toFixed(2)} 万亿</strong></div>
+          <div class="ruler-item"><span style="color:#0f5c42;font-weight:600;">0.6% 极端冰点需缩至</span><strong>${(curCap * 0.006).toFixed(2)} 万亿</strong></div>
+        </div>
+      `;
+
+      const chart = echarts.init(el);
+      charts.turnover = chart;
+      let mode = "rate";
+      let showAnchors = true;
+      let showSignals = true;
+      let zoomRange = pctFromDates(tv.dates, { since: "2024-07-01" });
+
+      const anchorDefs = [
+        { date: "2012-11-26", label: "12-11地量", type: "cold" },
+        { date: "2015-05-28", label: "15-05天量", type: "hot" },
+        { date: "2018-09-17", label: "18-09地量", type: "cold" },
+        { date: "2024-08-13", label: "24-08地量", type: "cold" },
+        { date: "2024-10-08", label: "24-10天量", type: "hot" },
+        { date: "2026-01-12", label: "26-01天量", type: "hot" }
+      ];
+      const dateMap = new Map(tv.dates.map((d, i) => [d, i]));
+
+      const renderTurnover = () => {
+        const isRate = mode === "rate";
+        const anchorPoints = showAnchors ? anchorDefs.filter(a => dateMap.has(a.date)).map(a => {
+          const i = dateMap.get(a.date);
+          const val = isRate ? tv.turnover[i] : tv.pct5y[i];
+          return {
+            name: a.label,
+            coord: [a.date, val],
+            value: isRate ? `${a.label}\n${val.toFixed(2)}%` : `${a.label}\n${val.toFixed(0)}分位`,
+            itemStyle: { color: a.type === "hot" ? "#b82323" : "#167a58" },
+            label: { fontSize: 11, color: "#fff", lineHeight: 13 }
+          };
+        }) : [];
+
+        const signalPoints = showSignals && tv.signalEvents ? tv.signalEvents.map(ev => {
+          const isConfirm = ev.kind === "牛转熊确认";
+          const isWarn = ev.kind === "牛转熊预警";
+          return {
+            name: ev.kind,
+            coord: [ev.date, ev.sh],
+            value: isConfirm ? "转熊\n确认" : isWarn ? "转熊\n预警" : "筑底\n确认",
+            itemStyle: { color: isConfirm ? "#991b1b" : isWarn ? "#d97706" : "#15803d" },
+            label: { fontSize: 10, color: "#fff", lineHeight: 12 },
+            symbolOffset: [0, isConfirm || isWarn ? -24 : 24]
+          };
+        }) : [];
+
+        const leftAxis = isRate
+          ? {
+              type: "value",
+              name: "全A流通换手率 (%)",
+              nameGap: 14,
+              min: 0,
+              axisLabel: { formatter: "{value}%" },
+              splitLine: { lineStyle: { color: "#eceff2" } }
+            }
+          : {
+              type: "value",
+              name: "近5年历史分位 (%)",
+              nameGap: 14,
+              min: 0,
+              max: 100,
+              axisLabel: { formatter: "{value}%" },
+              splitLine: { lineStyle: { color: "#eceff2" } }
+            };
+
+        const series = isRate
+          ? [
+              {
+                name: "全A日换手率",
+                type: "bar",
+                yAxisIndex: 0,
+                data: tv.turnover,
+                itemStyle: { color: "rgba(231,123,25,0.28)" },
+                markArea: {
+                  silent: true,
+                  data: [
+                    [{ yAxis: 3.0, itemStyle: { color: "rgba(184,35,35,0.08)" }, name: "过热天量区(勿追)" }, { yAxis: 6.0 }],
+                    [{ yAxis: 0.0, itemStyle: { color: "rgba(22,122,88,0.09)" }, name: "低谷地量区(勿割)" }, { yAxis: 1.0 }]
+                  ]
+                },
+                markLine: {
+                  silent: true,
+                  symbol: "none",
+                  label: { position: "insideStartTop", fontSize: 11 },
+                  data: [
+                    { yAxis: 3.0, lineStyle: { color: "#c43c3c", type: "dashed", width: 1.3 }, label: { formatter: "过热警戒 3.0%（勿追）", color: "#c43c3c" } },
+                    { yAxis: 1.0, lineStyle: { color: "#167a58", type: "dashed", width: 1.3 }, label: { formatter: "低谷冷清 1.0%（勿割）", color: "#167a58" } },
+                    { yAxis: 0.6, lineStyle: { color: "#167a58", type: "dotted", width: 1 }, label: { formatter: "极端冰点 0.6%", color: "#167a58" } }
+                  ]
+                },
+                markPoint: { symbolSize: [64, 34], symbol: "roundRect", symbolOffset: [0, -22], data: anchorPoints }
+              },
+              {
+                name: "换手率 MA5",
+                type: "line",
+                yAxisIndex: 0,
+                showSymbol: false,
+                data: tv.ma5,
+                lineStyle: { width: 1.5, color: "#e77b19" },
+                itemStyle: { color: "#e77b19" }
+              },
+              {
+                name: "换手率 MA20（主温度线）",
+                type: "line",
+                yAxisIndex: 0,
+                showSymbol: false,
+                data: tv.ma20,
+                lineStyle: { width: 2.4, color: "#b82323" },
+                itemStyle: { color: "#b82323" }
+              },
+              {
+                name: "上证指数（右轴）",
+                type: "line",
+                yAxisIndex: 1,
+                showSymbol: false,
+                data: tv.shIndex,
+                lineStyle: { width: 2.0, color: "#2e6894" },
+                itemStyle: { color: "#2e6894" },
+                markPoint: { symbol: "roundRect", symbolSize: [42, 28], data: signalPoints }
+              }
+            ]
+          : [
+              {
+                name: "近5年滚动分位 (%)",
+                type: "line",
+                yAxisIndex: 0,
+                showSymbol: false,
+                data: tv.pct5y,
+                lineStyle: { width: 1.6, color: "#c43c3c" },
+                itemStyle: { color: "#c43c3c" },
+                areaStyle: { color: "rgba(196,60,60,0.10)" },
+                markArea: {
+                  silent: true,
+                  data: [
+                    [{ yAxis: 90, itemStyle: { color: "rgba(184,35,35,0.10)" } }, { yAxis: 100 }],
+                    [{ yAxis: 0, itemStyle: { color: "rgba(22,122,88,0.11)" } }, { yAxis: 10 }]
+                  ]
+                },
+                markLine: {
+                  silent: true,
+                  symbol: "none",
+                  label: { position: "insideStartTop", fontSize: 11 },
+                  data: [
+                    { yAxis: 90, lineStyle: { color: "#c43c3c", type: "dashed" }, label: { formatter: "90% 历史过热分位", color: "#c43c3c" } },
+                    { yAxis: 50, lineStyle: { color: "#8a9499", type: "dotted" }, label: { formatter: "50% 中位数", color: "#637381" } },
+                    { yAxis: 10, lineStyle: { color: "#167a58", type: "dashed" }, label: { formatter: "10% 历史冰点分位", color: "#167a58" } }
+                  ]
+                },
+                markPoint: { symbolSize: [64, 34], symbol: "roundRect", symbolOffset: [0, -22], data: anchorPoints }
+              },
+              {
+                name: "上证指数（右轴）",
+                type: "line",
+                yAxisIndex: 1,
+                showSymbol: false,
+                data: tv.shIndex,
+                lineStyle: { width: 2.2, color: "#2e6894" },
+                itemStyle: { color: "#2e6894" },
+                markPoint: { symbol: "roundRect", symbolSize: [42, 28], data: signalPoints }
+              }
+            ];
+
+        chart.setOption({
+          animation: false,
+          tooltip: {
+            trigger: "axis",
+            confine: true,
+            axisPointer: { type: "cross" },
+            formatter: (params) => {
+              if (!params || !params.length) return "";
+              const i = params[0].dataIndex;
+              const tr = tv.turnover[i];
+              const tag = tr >= 3.5 ? "极端天量(勿追)" : tr >= 3.0 ? "过热警戒(勿追)" : tr >= 2.2 ? "偏热活跃" : tr >= 1.0 ? "常态震荡" : tr >= 0.65 ? "低谷冷清(勿割)" : "极端冰点(勿割)";
+              const sig = tv.signals?.[i] ? ` ｜ <strong style="color:${tv.signals[i].startsWith("牛转熊") ? "#b82323" : "#15803d"};">${tv.signals[i]}</strong>` : "";
+              const dp = tv.daysSincePeak?.[i] ?? 0;
+              const dt = tv.daysSinceTrough?.[i] ?? 0;
+              const timerLine = (dp > 0 || dt > 0)
+                ? `<div style="color:#475569;">周期计时：${dp > 0 ? `距天量峰 <strong>${dp}</strong> 日未超` : ""}${dp > 0 && dt > 0 ? " ｜ " : ""}${dt > 0 ? `距地量谷 <strong>${dt}</strong> 日未破` : ""}</div>`
+                : "";
+              return `
+                <div style="font-weight:700;margin-bottom:5px;">${tv.dates[i]} · ${tag}${sig}</div>
+                <div style="font-size:12px;line-height:1.7;font-variant-numeric:tabular-nums;">
+                  <div><span style="color:#2e6894;">●</span> 上证指数：<strong>${tv.shIndex[i].toFixed(2)}</strong>（MA60 ${(tv.shMa60?.[i] ?? 0).toFixed(2)}）</div>
+                  <div><span style="color:#e77b19;">■</span> 当日换手率：<strong>${tr.toFixed(2)}%</strong>（MA5 ${tv.ma5[i].toFixed(2)}% / MA20 ${tv.ma20[i].toFixed(2)}%）</div>
+                  <div><span style="color:#b82323;">●</span> 近5年历史分位：<strong>${tv.pct5y[i].toFixed(1)}%</strong> ｜ 量能比(相对MA20)：<strong>${tv.volRatio[i].toFixed(2)}x</strong></div>
+                  ${timerLine}
+                  <hr style="border:none;border-top:1px solid #eee;margin:4px 0;"/>
+                  <div style="color:#637381;">全A成交额：${(tv.totalAmountYi[i] / 10000).toFixed(2)} 万亿（沪 ${tv.shAmountYi[i].toFixed(0)}亿 + 深 ${tv.szAmountYi[i].toFixed(0)}亿）</div>
+                  <div style="color:#637381;">全A流通市值：${tv.floatCapWanYi[i].toFixed(2)} 万亿</div>
+                </div>`;
+            }
+          },
+          toolbox: commonToolbox("ashare_turnover_cycle_interactive"),
+          legend: { bottom: 44, textStyle: { fontSize: 12 } },
+          grid: { left: 74, right: 82, top: 72, bottom: 94 },
+          xAxis: { type: "category", data: tv.dates, boundaryGap: false, axisLine: { lineStyle: { color: "#8a9499" } } },
+          yAxis: [
+            leftAxis,
+            {
+              type: "value",
+              name: "上证指数（点）",
+              nameGap: 14,
+              nameTextStyle: { padding: [0, 8, 0, 0] },
+              scale: true,
+              axisLine: { show: true, lineStyle: { color: "#2e6894" } },
+              splitLine: { show: false }
+            }
+          ],
+          dataZoom: [
+            { type: "inside", start: zoomRange[0], end: zoomRange[1], zoomOnMouseWheel: true, moveOnMouseMove: true },
+            { type: "slider", bottom: 8, height: 26, start: zoomRange[0], end: zoomRange[1] }
+          ],
+          series
+        }, true);
+      };
+
+      chart.on("datazoom", () => {
+        const dz = chart.getOption().dataZoom?.[0];
+        if (dz) zoomRange = [dz.start, dz.end];
+      });
+
+      renderTurnover();
+
+      const modeBox = document.getElementById("mode-turnover");
+      modeBox.querySelectorAll("button").forEach(btn => {
+        btn.addEventListener("click", () => {
+          modeBox.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          mode = btn.dataset.mode;
+          renderTurnover();
+        });
+      });
+
+      const anchorBtn = document.getElementById("toggle-turnover-anchors");
+      anchorBtn.addEventListener("click", () => {
+        showAnchors = !showAnchors;
+        anchorBtn.classList.toggle("active", showAnchors);
+        anchorBtn.textContent = showAnchors ? "历史极值锚点：开" : "历史极值锚点：关";
+        renderTurnover();
+      });
+
+      const signalBtn = document.getElementById("toggle-turnover-signals");
+      signalBtn.addEventListener("click", () => {
+        showSignals = !showSignals;
+        signalBtn.classList.toggle("active", showSignals);
+        signalBtn.textContent = showSignals ? "牛熊/筑底信号：开" : "牛熊/筑底信号：关";
+        renderTurnover();
+      });
+
+      bindRangeButtons("range-turnover", "turnover", tv.dates, (start, end) => {
+        zoomRange = [start, end];
+        chart.dispatchAction({ type: "dataZoom", start, end });
+      });
+    }
+
+    function initChinextTurnover() {
+      const el = document.getElementById("chart-chinext");
+      const cy = DATA.chinextTurnover;
+      if (!cy) {
+        el.innerHTML = '<div class="empty-msg">未找到创业板换手率 CSV 数据（可运行 chinext 更新）。</div>';
+        return;
+      }
+      const last = cy.dates.length - 1;
+      const curTr = cy.turnover[last];
+      const curMa5 = cy.ma5[last];
+      const curMa20 = cy.ma20[last];
+      const curCapYi = cy.floatCapYi[last];
+      const curCapWanYi = curCapYi / 10000;
+      const curIdx = cy.indexVal[last];
+      const curMa60 = cy.indexMa60[last];
+      document.getElementById("sub-chinext").textContent =
+        `${cy.firstDate} 至 ${cy.latestDate}（共 ${cy.dates.length} 个交易日，口径：创业板日成交额 ÷ 创业板流通市值，深交所官方锚点校准）`;
+
+      // Cycle timer panel (calibrated for ChiNext: Peak MA5>=5.0% & MA20>=4.0%, Warn 40d+MA60 / Confirm 95d; Trough MA5<=2.0% & DD<=-20%, Confirm 75d)
+      const pk = cy.peakInfo;
+      const trk = cy.troughInfo;
+      let bearCardCls = "alert-idle", bearBadgeCls = "state-mid", bearBadgeText = "无活跃天量峰";
+      let bearDays = pk ? pk.days : 0;
+      let bearPct = Math.min(100, (bearDays / 95) * 100);
+      let bearMeta = `规则：创业板 MA5≥5.0%(且MA20≥4.0%)创120日新高后，40日未超+破60线=预警，95日未超=牛转熊确认。`;
+      if (pk) {
+        const belowMa60 = curIdx < curMa60;
+        if (bearDays >= 95) {
+          bearCardCls = "alert-bear"; bearBadgeCls = "state-hot"; bearBadgeText = `牛转熊已确认（${bearDays} / 95 日）`;
+        } else if (bearDays >= 40 && belowMa60) {
+          bearCardCls = "alert-warn"; bearBadgeCls = "state-warm"; bearBadgeText = `牛转熊预警中（${bearDays} / 95 日）`;
+        } else {
+          bearCardCls = "alert-warn"; bearBadgeCls = "state-mid"; bearBadgeText = `天量退潮计数（${bearDays} / 95 日）`;
+        }
+        const idxChg = ((curIdx / pk.idx) - 1) * 100;
+        bearMeta = `近1年MA5天量峰：<strong>${pk.date}（${pk.ma5.toFixed(2)}%，创指 ${pk.idx.toFixed(0)}）</strong>，已连续 <strong>${bearDays} 个交易日</strong>未超越（创指较峰 ${signed(idxChg, 1)}%）。<br/>` +
+          `创业板指 <strong>${curIdx.toFixed(2)}</strong> vs 60日线 <strong>${curMa60.toFixed(2)}</strong>（${belowMa60 ? '<span class="neg">已跌破季度线</span>' : '<span class="pos">站稳季度线上</span>'}）｜40日预警线在 42% 刻度，95日确认线在满格。`;
+      }
+
+      let botCardCls = "alert-idle", botBadgeCls = "state-mid", botBadgeText = "尚未进入地量区";
+      let botDays = trk ? trk.days : 0;
+      let botPct = Math.min(100, (botDays / 75) * 100);
+      let botMeta = `当前 MA5 换手率 <strong>${curMa5.toFixed(2)}%</strong>，距创业板地量门槛（≤2.00%）仍高 <strong>+${Math.max(0, curMa5 - 2.0).toFixed(2)}%</strong>（按最新 ${curCapWanYi.toFixed(2)} 万亿流通市值需缩至约 <strong>${(curCapYi * 0.02).toFixed(0)} 亿</strong> 以下启动计时）。<br/>` +
+        `创业板指距近1年高点回撤 <strong>${cy.indexDd252Latest.toFixed(1)}%</strong>（${cy.indexDd252Latest <= -20 ? '已满足≥20%深跌过滤条件' : '未达≥20%深跌条件'}）；进入地量后需熬过 <strong>75 个交易日</strong>不再更低方确认筑底。`;
+      if (trk) {
+        if (botDays >= 75) {
+          botCardCls = "alert-bot"; botBadgeCls = "state-cold"; botBadgeText = `筑底已确认（${botDays} / 75 日）`;
+        } else {
+          botCardCls = "alert-bot"; botBadgeCls = "state-warm"; botBadgeText = `地量筑底计数（${botDays} / 75 日）`;
+        }
+        botMeta = `合格地量谷：<strong>${trk.date}（MA5=${trk.ma5.toFixed(2)}%，创指 ${trk.idx.toFixed(0)}）</strong>，已连续 <strong>${botDays} 个交易日</strong>未再破新低（距谷底已变动 <strong>${signed(trk.upSince, 1)}%</strong>）。<br/>` +
+          (trk.upSince >= 15 ? `提示：确认时较谷底涨幅已超 15%，谨防二次回踩，宜等缩量回踩再布局。` : `提示：处于深跌后低位横盘筑底区，历史回测满 75 日后胜率显著抬升。`);
+      }
+
+      document.getElementById("chinext-timer-panel").innerHTML = `
+        <div class="timer-card ${bearCardCls}">
+          <div class="timer-head">
+            <span>创业板牛转熊计时器（顶部退潮监控）</span>
+            <span class="state-badge ${bearBadgeCls}">${bearBadgeText}</span>
+          </div>
+          <div class="timer-progress">
+            <div class="timer-fill bear" style="width:${bearPct}%;"></div>
+            <div class="timer-mark" style="left:${(40 / 95) * 100}%;" title="40日预警线 (+跌破MA60)"></div>
+          </div>
+          <div class="timer-meta">${bearMeta}</div>
+        </div>
+        <div class="timer-card ${botCardCls}">
+          <div class="timer-head">
+            <span>创业板地量筑底计时器（底部确认监控）</span>
+            <span class="state-badge ${botBadgeCls}">${botBadgeText}</span>
+          </div>
+          <div class="timer-progress">
+            <div class="timer-fill bot" style="width:${botPct}%;"></div>
+          </div>
+          <div class="timer-meta">${botMeta}</div>
+        </div>
+      `;
+
+      // Historical signal table
+      const sigTableBox = document.getElementById("chinext-signal-table");
+      if (sigTableBox && cy.signalEvents && cy.signalEvents.length) {
+        const rowsHtml = [...cy.signalEvents].reverse().map(ev => {
+          const bCls = ev.kind === "牛转熊确认" ? "state-hot" : ev.kind === "牛转熊预警" ? "state-warm" : "state-cold";
+          const ruleTxt = ev.kind === "牛转熊确认" ? `MA5≥5.0%峰后连续 ${ev.days} 日未超越`
+            : ev.kind === "牛转熊预警" ? `MA5≥5.0%峰后 ${ev.days} 日未超 + 破MA60`
+            : `深跌≥20%地量谷(≤2.0%)后连续 ${ev.days} 日未破`;
+          return `<tr>
+            <td><span class="state-badge ${bCls}">${ev.kind}</span></td>
+            <td>${ev.date}</td>
+            <td>${ev.idx.toFixed(2)}</td>
+            <td>${ev.refDate}（MA5 ${ev.refMa5.toFixed(2)}%，创指 ${ev.refIdx.toFixed(0)}）</td>
+            <td>${ruleTxt}</td>
+          </tr>`;
+        }).join("");
+        sigTableBox.innerHTML = `
+          <div style="font-size:12px;font-weight:700;margin:8px 0 4px;color:#1f2a33;">创业板历次周期信号触发记录（2012至今，严格无未来函数，最新在前）</div>
+          <table class="ref-table" style="margin-bottom:12px;">
+            <thead><tr><th>信号类型</th><th>触发日期</th><th>触发日创指</th><th>对应前序极值峰/谷</th><th>触发规则</th></tr></thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+          <div style="font-size:12px;font-weight:700;margin:8px 0 4px;color:#1f2a33;">创业板经典历史天量见顶 / 地量见底复盘对照</div>
+        `;
+      }
+
+      // Thermometer bar (1.0% .. 8.0%) & dynamic turnover ruler
+      const clampPos = (v) => Math.max(0, Math.min(100, ((v - 1.0) / (8.0 - 1.0)) * 100));
+      const badgeCls = curTr >= 5.0 ? "state-hot" : curTr >= 3.8 ? "state-warm" : curTr <= 2.0 ? "state-cold" : "state-mid";
+      document.getElementById("chinext-thermo-panel").innerHTML = `
+        <div class="thermo-bar-wrap">
+          <div class="thermo-bar-head">
+            <span><strong>创业板实时温度：</strong><span class="state-badge ${badgeCls}">${cy.latestState}</span></span>
+            <span>■ 当日 <strong>${curTr.toFixed(2)}%</strong>（黑标） ｜ <span style="color:#c43c3c;">■ MA20 <strong>${curMa20.toFixed(2)}%</strong>（红标）</span> ｜ 近5年分位 <strong>${cy.pct5y[last].toFixed(1)}%</strong></span>
+          </div>
+          <div class="thermo-track">
+            <div class="thermo-pin ma20" style="left:${clampPos(curMa20)}%;" title="MA20: ${curMa20.toFixed(2)}%"></div>
+            <div class="thermo-pin today" style="left:${clampPos(curTr)}%;" title="当日: ${curTr.toFixed(2)}%"></div>
+          </div>
+          <div class="thermo-ticks">
+            <span>1.0% 极冷</span>
+            <span>2.0% 地量线（勿割）</span>
+            <span>3.0% 常态中枢</span>
+            <span>5.0% 过热线（勿追）</span>
+            <span>8.0% 极端天量</span>
+          </div>
+        </div>
+        <div class="ruler-grid">
+          <div class="ruler-item"><span style="color:#b82323;font-weight:600;">6.5% 极端天量需成交</span><strong>${(curCapYi * 0.065).toFixed(0)} 亿</strong></div>
+          <div class="ruler-item"><span style="color:#d14927;font-weight:600;">5.0% 过热警戒需成交</span><strong>${(curCapYi * 0.05).toFixed(0)} 亿</strong></div>
+          <div class="ruler-item"><span style="color:#167a58;font-weight:600;">2.0% 低谷冷清需缩至</span><strong>${(curCapYi * 0.02).toFixed(0)} 亿</strong></div>
+          <div class="ruler-item"><span style="color:#0f5c42;font-weight:600;">1.6% 极端冰点需缩至</span><strong>${(curCapYi * 0.016).toFixed(0)} 亿</strong></div>
+        </div>
+      `;
+
+      const chart = echarts.init(el);
+      charts.chinext = chart;
+      let mode = "rate";
+      let showAnchors = true;
+      let showSignals = true;
+      let zoomRange = pctFromDates(cy.dates, { since: "2024-07-01" });
+
+      const anchorDefs = [
+        { date: "2015-05-28", label: "15-05天量", type: "hot" },
+        { date: "2018-09-17", label: "18-09地量", type: "cold" },
+        { date: "2022-10-11", label: "22-10地量", type: "cold" },
+        { date: "2024-08-13", label: "24-08地量", type: "cold" },
+        { date: "2024-10-08", label: "24-10天量", type: "hot" },
+        { date: "2026-01-14", label: "26-01天量", type: "hot" }
+      ];
+      const dateMap = new Map(cy.dates.map((d, i) => [d, i]));
+
+      const renderChinext = () => {
+        const isRate = mode === "rate";
+        const anchorPoints = showAnchors ? anchorDefs.filter(a => dateMap.has(a.date)).map(a => {
+          const i = dateMap.get(a.date);
+          const val = isRate ? cy.turnover[i] : cy.pct5y[i];
+          return {
+            name: a.label,
+            coord: [a.date, val],
+            value: isRate ? `${a.label}\n${val.toFixed(2)}%` : `${a.label}\n${val.toFixed(0)}分位`,
+            itemStyle: { color: a.type === "hot" ? "#b82323" : "#167a58" },
+            label: { fontSize: 11, color: "#fff", lineHeight: 13 }
+          };
+        }) : [];
+
+        const signalPoints = showSignals && cy.signalEvents ? cy.signalEvents.map(ev => {
+          const isConfirm = ev.kind === "牛转熊确认";
+          const isWarn = ev.kind === "牛转熊预警";
+          return {
+            name: ev.kind,
+            coord: [ev.date, ev.idx],
+            value: isConfirm ? "转熊\n确认" : isWarn ? "转熊\n预警" : "筑底\n确认",
+            itemStyle: { color: isConfirm ? "#991b1b" : isWarn ? "#d97706" : "#15803d" },
+            label: { fontSize: 10, color: "#fff", lineHeight: 12 },
+            symbolOffset: [0, isConfirm || isWarn ? -24 : 24]
+          };
+        }) : [];
+
+        const leftAxis = isRate
+          ? {
+              type: "value",
+              name: "创业板流通换手率 (%)",
+              nameGap: 14,
+              min: 0,
+              axisLabel: { formatter: "{value}%" },
+              splitLine: { lineStyle: { color: "#eceff2" } }
+            }
+          : {
+              type: "value",
+              name: "近5年历史分位 (%)",
+              nameGap: 14,
+              min: 0,
+              max: 100,
+              axisLabel: { formatter: "{value}%" },
+              splitLine: { lineStyle: { color: "#eceff2" } }
+            };
+
+        const series = isRate
+          ? [
+              {
+                name: "创业板日换手率",
+                type: "bar",
+                yAxisIndex: 0,
+                data: cy.turnover,
+                itemStyle: { color: "rgba(231,123,25,0.28)" },
+                markArea: {
+                  silent: true,
+                  data: [
+                    [{ yAxis: 5.0, itemStyle: { color: "rgba(184,35,35,0.08)" }, name: "过热天量区(勿追)" }, { yAxis: 11.0 }],
+                    [{ yAxis: 0.0, itemStyle: { color: "rgba(22,122,88,0.09)" }, name: "低谷地量区(勿割)" }, { yAxis: 2.0 }]
+                  ]
+                },
+                markLine: {
+                  silent: true,
+                  symbol: "none",
+                  label: { position: "insideStartTop", fontSize: 11 },
+                  data: [
+                    { yAxis: 5.0, lineStyle: { color: "#c43c3c", type: "dashed", width: 1.3 }, label: { formatter: "过热警戒 5.0%（勿追）", color: "#c43c3c" } },
+                    { yAxis: 2.0, lineStyle: { color: "#167a58", type: "dashed", width: 1.3 }, label: { formatter: "低谷冷清 2.0%（勿割）", color: "#167a58" } },
+                    { yAxis: 1.6, lineStyle: { color: "#167a58", type: "dotted", width: 1 }, label: { formatter: "极端冰点 1.6%", color: "#167a58" } }
+                  ]
+                },
+                markPoint: { symbolSize: [64, 34], symbol: "roundRect", symbolOffset: [0, -22], data: anchorPoints }
+              },
+              {
+                name: "换手率 MA5",
+                type: "line",
+                yAxisIndex: 0,
+                showSymbol: false,
+                data: cy.ma5,
+                lineStyle: { width: 1.5, color: "#e77b19" },
+                itemStyle: { color: "#e77b19" }
+              },
+              {
+                name: "换手率 MA20（主温度线）",
+                type: "line",
+                yAxisIndex: 0,
+                showSymbol: false,
+                data: cy.ma20,
+                lineStyle: { width: 2.4, color: "#b82323" },
+                itemStyle: { color: "#b82323" }
+              },
+              {
+                name: "创业板指（右轴）",
+                type: "line",
+                yAxisIndex: 1,
+                showSymbol: false,
+                data: cy.indexVal,
+                lineStyle: { width: 2.0, color: "#2e6894" },
+                itemStyle: { color: "#2e6894" },
+                markPoint: { symbol: "roundRect", symbolSize: [42, 28], data: signalPoints }
+              }
+            ]
+          : [
+              {
+                name: "近5年滚动分位 (%)",
+                type: "line",
+                yAxisIndex: 0,
+                showSymbol: false,
+                data: cy.pct5y,
+                lineStyle: { width: 1.6, color: "#c43c3c" },
+                itemStyle: { color: "#c43c3c" },
+                areaStyle: { color: "rgba(196,60,60,0.10)" },
+                markArea: {
+                  silent: true,
+                  data: [
+                    [{ yAxis: 90, itemStyle: { color: "rgba(184,35,35,0.10)" } }, { yAxis: 100 }],
+                    [{ yAxis: 0, itemStyle: { color: "rgba(22,122,88,0.11)" } }, { yAxis: 10 }]
+                  ]
+                },
+                markLine: {
+                  silent: true,
+                  symbol: "none",
+                  label: { position: "insideStartTop", fontSize: 11 },
+                  data: [
+                    { yAxis: 90, lineStyle: { color: "#c43c3c", type: "dashed" }, label: { formatter: "90% 历史过热分位", color: "#c43c3c" } },
+                    { yAxis: 50, lineStyle: { color: "#8a9499", type: "dotted" }, label: { formatter: "50% 中位数", color: "#637381" } },
+                    { yAxis: 10, lineStyle: { color: "#167a58", type: "dashed" }, label: { formatter: "10% 历史冰点分位", color: "#167a58" } }
+                  ]
+                },
+                markPoint: { symbolSize: [64, 34], symbol: "roundRect", symbolOffset: [0, -22], data: anchorPoints }
+              },
+              {
+                name: "创业板指（右轴）",
+                type: "line",
+                yAxisIndex: 1,
+                showSymbol: false,
+                data: cy.indexVal,
+                lineStyle: { width: 2.2, color: "#2e6894" },
+                itemStyle: { color: "#2e6894" },
+                markPoint: { symbol: "roundRect", symbolSize: [42, 28], data: signalPoints }
+              }
+            ];
+
+        chart.setOption({
+          animation: false,
+          tooltip: {
+            trigger: "axis",
+            confine: true,
+            axisPointer: { type: "cross" },
+            formatter: (params) => {
+              if (!params || !params.length) return "";
+              const i = params[0].dataIndex;
+              const tr = cy.turnover[i];
+              const tag = tr >= 6.5 ? "极端天量(勿追)" : tr >= 5.0 ? "过热警戒(勿追)" : tr >= 3.8 ? "偏热活跃" : tr >= 2.0 ? "常态震荡" : tr >= 1.6 ? "低谷冷清(勿割)" : "极端冰点(勿割)";
+              const sig = cy.signals?.[i] ? ` ｜ <strong style="color:${cy.signals[i].startsWith("牛转熊") ? "#b82323" : "#15803d"};">${cy.signals[i]}</strong>` : "";
+              const dp = cy.daysSincePeak?.[i] ?? 0;
+              const dt = cy.daysSinceTrough?.[i] ?? 0;
+              const timerLine = (dp > 0 || dt > 0)
+                ? `<div style="color:#475569;">周期计时：${dp > 0 ? `距天量峰 <strong>${dp}</strong> 日未超` : ""}${dp > 0 && dt > 0 ? " ｜ " : ""}${dt > 0 ? `距地量谷 <strong>${dt}</strong> 日未破` : ""}</div>`
+                : "";
+              return `
+                <div style="font-weight:700;margin-bottom:5px;">${cy.dates[i]} · ${tag}${sig}</div>
+                <div style="font-size:12px;line-height:1.7;font-variant-numeric:tabular-nums;">
+                  <div><span style="color:#2e6894;">●</span> 创业板指：<strong>${cy.indexVal[i].toFixed(2)}</strong>（MA60 ${(cy.indexMa60?.[i] ?? 0).toFixed(2)}）</div>
+                  <div><span style="color:#e77b19;">■</span> 当日换手率：<strong>${tr.toFixed(2)}%</strong>（MA5 ${cy.ma5[i].toFixed(2)}% / MA20 ${cy.ma20[i].toFixed(2)}%）</div>
+                  <div><span style="color:#b82323;">●</span> 近5年历史分位：<strong>${cy.pct5y[i].toFixed(1)}%</strong> ｜ 量能比(相对MA20)：<strong>${cy.volRatio[i].toFixed(2)}x</strong></div>
+                  ${timerLine}
+                  <hr style="border:none;border-top:1px solid #eee;margin:4px 0;"/>
+                  <div style="color:#637381;">创业板成交额：${cy.amountYi[i].toFixed(1)} 亿元 ｜ 创业板流通市值：${(cy.floatCapYi[i] / 10000).toFixed(2)} 万亿</div>
+                </div>`;
+            }
+          },
+          toolbox: commonToolbox("chinext_turnover_cycle_interactive"),
+          legend: { bottom: 44, textStyle: { fontSize: 12 } },
+          grid: { left: 74, right: 82, top: 72, bottom: 94 },
+          xAxis: { type: "category", data: cy.dates, boundaryGap: false, axisLine: { lineStyle: { color: "#8a9499" } } },
+          yAxis: [
+            leftAxis,
+            {
+              type: "value",
+              name: "创业板指（点）",
+              nameGap: 14,
+              nameTextStyle: { padding: [0, 8, 0, 0] },
+              scale: true,
+              axisLine: { show: true, lineStyle: { color: "#2e6894" } },
+              splitLine: { show: false }
+            }
+          ],
+          dataZoom: [
+            { type: "inside", start: zoomRange[0], end: zoomRange[1], zoomOnMouseWheel: true, moveOnMouseMove: true },
+            { type: "slider", bottom: 8, height: 26, start: zoomRange[0], end: zoomRange[1] }
+          ],
+          series
+        }, true);
+      };
+
+      chart.on("datazoom", () => {
+        const dz = chart.getOption().dataZoom?.[0];
+        if (dz) zoomRange = [dz.start, dz.end];
+      });
+
+      renderChinext();
+
+      const modeBox = document.getElementById("mode-chinext");
+      modeBox.querySelectorAll("button").forEach(btn => {
+        btn.addEventListener("click", () => {
+          modeBox.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          mode = btn.dataset.mode;
+          renderChinext();
+        });
+      });
+
+      const anchorBtn = document.getElementById("toggle-chinext-anchors");
+      anchorBtn.addEventListener("click", () => {
+        showAnchors = !showAnchors;
+        anchorBtn.classList.toggle("active", showAnchors);
+        anchorBtn.textContent = showAnchors ? "历史极值锚点：开" : "历史极值锚点：关";
+        renderChinext();
+      });
+
+      const signalBtn = document.getElementById("toggle-chinext-signals");
+      signalBtn.addEventListener("click", () => {
+        showSignals = !showSignals;
+        signalBtn.classList.toggle("active", showSignals);
+        signalBtn.textContent = showSignals ? "牛熊/筑底信号：开" : "牛熊/筑底信号：关";
+        renderChinext();
+      });
+
+      bindRangeButtons("range-chinext", "chinext", cy.dates, (start, end) => {
+        zoomRange = [start, end];
+        chart.dispatchAction({ type: "dataZoom", start, end });
+      });
+    }
+
+    // Navigation view switcher
+    function setView(view) {
+      document.querySelectorAll(".nav-tab").forEach(tab => {
+        tab.classList.toggle("active", tab.dataset.view === view);
+      });
+      document.querySelectorAll(".card[data-section]").forEach(card => {
+        const visible = view === "all" || card.dataset.section === view;
+        card.classList.toggle("hidden", !visible);
+      });
+      setTimeout(resizeAll, 40);
+    }
+
+    function jumpToSection(section) {
+      setView("all");
+      const el = document.getElementById(`card-${section}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function toggleFullscreen(cardId) {
+      const card = document.getElementById(cardId);
+      const backdrop = document.getElementById("backdrop");
+      const isFull = card.classList.toggle("fullscreen");
+      backdrop.classList.toggle("show", isFull);
+      const btn = card.querySelector(".card-title-row .btn.ghost");
+      if (btn) btn.textContent = isFull ? "退出全屏 (Esc)" : "全屏放大";
+      setTimeout(resizeAll, 50);
+    }
+
+    function exitAllFullscreen() {
+      document.querySelectorAll(".card.fullscreen").forEach(card => {
+        card.classList.remove("fullscreen");
+        const btn = card.querySelector(".card-title-row .btn.ghost");
+        if (btn) btn.textContent = "全屏放大";
+      });
+      document.getElementById("backdrop").classList.remove("show");
+      setTimeout(resizeAll, 50);
+    }
+
+    function resizeAll() {
+      Object.values(charts).forEach(c => { if (c && !c.isDisposed()) c.resize(); });
+    }
+
+    document.getElementById("nav-tabs").querySelectorAll("button").forEach(btn => {
+      btn.addEventListener("click", () => setView(btn.dataset.view));
+    });
+    document.getElementById("backdrop").addEventListener("click", exitAllFullscreen);
+    window.addEventListener("keydown", (e) => { if (e.key === "Escape") exitAllFullscreen(); });
+    window.addEventListener("resize", resizeAll);
+
+    // Boot
+    window.addEventListener("DOMContentLoaded", () => {
+      if (typeof echarts === "undefined") {
+        document.querySelectorAll(".chart-box").forEach(el => {
+          el.innerHTML = '<div class="empty-msg">未加载到 ECharts 脚本，请检查 outputs/assets/echarts.min.js 是否存在。</div>';
+        });
+        return;
+      }
+      buildKpis();
+      initIndustry();
+      initTech();
+      initDrawdown();
+      initTurnover();
+      initChinextTurnover();
+    });
+  </script>
+</body>
+</html>

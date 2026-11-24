@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="dashboard.template.html" LogicalName="MarketCharts.dashboard.template.html" />
+  </ItemGroup>
+  <ItemGroup Condition="Exists('vendor/SkiaSharp/SkiaSharp.dll')">
+    <Reference Include="SkiaSharp">
+      <HintPath>vendor/SkiaSharp/SkiaSharp.dll</HintPath>
+    </Reference>
+    <Content Include="vendor/SkiaSharp/runtimes/osx/native/libSkiaSharp.dylib" Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+      <Link>libSkiaSharp.dylib</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="vendor/SkiaSharp/runtimes/**/*">
+      <Link>runtimes/%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup Condition="!Exists('vendor/SkiaSharp/SkiaSharp.dll')">
+    <PackageReference Include="SkiaSharp" Version="3.119.4" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4" Condition="$([MSBuild]::IsOSPlatform('Linux'))" />
+    <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="3.119.4" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
+  </ItemGroup>
+</Project>

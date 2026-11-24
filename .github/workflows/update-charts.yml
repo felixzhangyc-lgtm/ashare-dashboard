@@ -1,0 +1,123 @@
+name: Update A-Share Charts & Deploy Dashboard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'outputs/dashboard.html'
+      - 'outputs/assets/**'
+      - '.github/workflows/update-charts.yml'
+  schedule:
+    # 北京时间周一至周五 09:25（拉取前一交易日 T+1 两融全行业披露与官方流通市值校准）
+    - cron: '25 1 * * 1-5'
+    # 北京时间周一至周五 15:20（15:00 收盘后第一时间快报）
+    - cron: '20 7 * * 1-5'
+    # 北京时间周一至周五 15:55（15:30 科创板/创业板盘后固定价格交易结束 25 分钟后补齐终盘成交额）
+    - cron: '55 7 * * 1-5'
+    # 北京时间周一至周五 17:40（沪深交易所盘后官方流通市值落地后最终校准；无变化则跳过提交）
+    - cron: '40 9 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: '执行模式：everything（抓最新数据并更新看板）或 dashboard（仅重生成看板）'
+        required: true
+        default: 'everything'
+        type: choice
+        options:
+          - everything
+          - dashboard
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Chinese fonts for SkiaSharp PNG rendering
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fontconfig fonts-noto-cjk
+          fc-cache -f
+
+      - name: Setup .NET 11
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '11.0.x'
+
+      - name: Build MarketCharts
+        run: dotnet build MarketCharts -c Release --nologo
+
+      - name: Fetch market data & regenerate dashboard
+        env:
+          RUN_MODE: ${{ inputs.mode || 'everything' }}
+        run: |
+          DLL="MarketCharts/bin/Release/net11.0/MarketCharts.dll"
+          if [ "$RUN_MODE" = "dashboard" ]; then
+            dotnet "$DLL" dashboard
+          else
+            for cmd in industry tech drawdown turnover chinext; do
+              echo "=== Updating $cmd ==="
+              dotnet "$DLL" "$cmd" || echo "::warning::$cmd failed to update, keeping previous CSV"
+            done
+            dotnet "$DLL" dashboard
+          fi
+
+      - name: Commit updated CSV / PNG / dashboard to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add outputs/
+          if git diff --cached --quiet; then
+            echo "No data changes to commit."
+          else
+            TS=$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M CST')
+            git commit -m "chore: update A-share charts ($TS) [skip ci]"
+            git pull --rebase origin main
+            git push origin main
+          fi
+
+  deploy:
+    needs: update
+    if: always() && (github.event_name == 'push' || needs.update.result == 'success')
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Stage GitHub Pages site
+        run: |
+          mkdir -p _site/assets
+          cp outputs/dashboard.html _site/index.html
+          cp -r outputs/assets/* _site/assets/
+          touch _site/.nojekyll
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

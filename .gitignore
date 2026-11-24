@@ -1,0 +1,10 @@
+.DS_Store
+**/bin/
+**/obj/
+**/.local/
+**/.nuget/
+Library/
+MarketCharts/vendor/
+/outputs/eastmoney_margin_l2_raw_since_2025.csv
+/outputs/sw_l1_margin_netbuy_*
+

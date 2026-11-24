@@ -30,6 +30,7 @@ try
         "chinext" or "创业板换手率图" or "创业板温度计" or "创业板顶底图" => "chinext",
         "all" or "三张图" => "all",
         "everything" or "全部图" or "所有图" => "everything",
+        "ci" => "ci",
         "dashboard" or "交互看板" or "看板" => "dashboard",
         _ => throw new ArgumentException($"未知命令 {args[0]}。\n{usage}")
     };
@@ -69,17 +70,24 @@ try
     if (!fromCsv && !skipUpdate && command != "dashboard" && beforeClose)
         Console.WriteLine($"当前北京时间 {nowShanghai:yyyy-MM-dd HH:mm}（当日未收盘），已自动过滤盘中数据，仅采纳 {Csv.Date(maxDate)} 及之前已收盘数据。");
 
-    if (command is "industry" or "all" or "everything")
-        await new IndustryReport(client, Path.Combine(output, "margin-industry-report-project"))
-            .RunAsync(fromCsv, skipUpdate, maxDate);
-    if (command is "tech" or "all" or "everything")
-        await TechReport.RunAsync(client, maxDate, Path.Combine(output, "tech-vs-dividend-2026"), fromCsv);
-    if (command is "drawdown" or "all" or "everything")
-        await DrawdownReport.RunAsync(client, maxDate, Path.Combine(output, "margin-drawdown-speed"), fromCsv);
-    if (command is "turnover" or "everything")
-        await TurnoverReport.RunAsync(client, maxDate, Path.Combine(output, "market-turnover-cycle"), fromCsv);
-    if (command is "chinext" or "everything")
-        await ChinextTurnoverReport.RunAsync(client, maxDate, Path.Combine(output, "chinext-turnover-cycle"), fromCsv);
+    if (command == "ci")
+    {
+        await RunLog.RunCiAsync(client, maxDate, nowShanghai, output);
+    }
+    else
+    {
+        if (command is "industry" or "all" or "everything")
+            await new IndustryReport(client, Path.Combine(output, "margin-industry-report-project"))
+                .RunAsync(fromCsv, skipUpdate, maxDate);
+        if (command is "tech" or "all" or "everything")
+            await TechReport.RunAsync(client, maxDate, Path.Combine(output, "tech-vs-dividend-2026"), fromCsv);
+        if (command is "drawdown" or "all" or "everything")
+            await DrawdownReport.RunAsync(client, maxDate, Path.Combine(output, "margin-drawdown-speed"), fromCsv);
+        if (command is "turnover" or "everything")
+            await TurnoverReport.RunAsync(client, maxDate, Path.Combine(output, "market-turnover-cycle"), fromCsv);
+        if (command is "chinext" or "everything")
+            await ChinextTurnoverReport.RunAsync(client, maxDate, Path.Combine(output, "chinext-turnover-cycle"), fromCsv);
+    }
     if (command == "dashboard" || !skipUpdate)
         DashboardReport.Run(output);
     return 0;

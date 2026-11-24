@@ -40,6 +40,11 @@ jobs:
   update:
     if: github.event_name != 'push'
     runs-on: ubuntu-latest
+    outputs:
+      has_failures: ${{ steps.fetch.outputs.has_failures }}
+      ok_count: ${{ steps.fetch.outputs.ok_count }}
+      fail_count: ${{ steps.fetch.outputs.fail_count }}
+      failed_summary: ${{ steps.fetch.outputs.failed_summary }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -61,21 +66,34 @@ jobs:
         run: dotnet build MarketCharts -c Release --nologo
 
       - name: Fetch market data & regenerate dashboard
+        id: fetch
         env:
           RUN_MODE: ${{ inputs.mode || 'everything' }}
         run: |
+          set -o pipefail
           DLL="MarketCharts/bin/Release/net11.0/MarketCharts.dll"
           if [ "$RUN_MODE" = "dashboard" ]; then
-            dotnet "$DLL" dashboard
+            dotnet "$DLL" dashboard 2>&1 | tee ci-run.log
+            echo "has_failures=false" >> "$GITHUB_OUTPUT"
+            echo "ok_count=0" >> "$GITHUB_OUTPUT"
+            echo "fail_count=0" >> "$GITHUB_OUTPUT"
+            echo "failed_summary=" >> "$GITHUB_OUTPUT"
           else
-            for cmd in industry tech drawdown turnover chinext; do
-              echo "=== Updating $cmd ==="
-              dotnet "$DLL" "$cmd" || echo "::warning::$cmd failed to update, keeping previous CSV"
-            done
-            dotnet "$DLL" dashboard
+            dotnet "$DLL" ci 2>&1 | tee ci-run.log
           fi
 
-      - name: Commit updated CSV / PNG / dashboard to main
+      - name: Upload 30-day raw run log artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-log-${{ github.run_id }}
+          path: |
+            ci-run.log
+            outputs/run_history.json
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Commit updated CSV / PNG / dashboard / run history to main
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -121,3 +139,28 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  alert:
+    needs: [update, deploy]
+    if: always() && github.event_name != 'push' && (needs.update.outputs.has_failures == 'true' || needs.update.result == 'failure' || needs.deploy.result == 'failure')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Emit failure alert to trigger GitHub email notification
+        env:
+          UPDATE_RESULT: ${{ needs.update.result }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          OK_COUNT: ${{ needs.update.outputs.ok_count }}
+          FAIL_COUNT: ${{ needs.update.outputs.fail_count }}
+          FAILED_SUMMARY: ${{ needs.update.outputs.failed_summary }}
+        run: |
+          {
+            echo "## 🚨 A股看板更新告警"
+            echo ""
+            echo "- update 阶段：\`$UPDATE_RESULT\`（成功 \`$OK_COUNT\` / 失败 \`$FAIL_COUNT\`）"
+            echo "- deploy 阶段：\`$DEPLOY_RESULT\`（其余正常模块已照常部署上线）"
+            if [ -n "$FAILED_SUMMARY" ]; then
+              echo "- 失败模块详情：$FAILED_SUMMARY"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error title=A股看板更新异常::update=$UPDATE_RESULT, deploy=$DEPLOY_RESULT | $FAILED_SUMMARY"
+          exit 1

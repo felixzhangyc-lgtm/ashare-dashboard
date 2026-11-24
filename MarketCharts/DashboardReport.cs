@@ -16,7 +16,8 @@ internal static class DashboardReport
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-        WriteIndented = false
+        WriteIndented = false,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
     public static void Run(string outputDir)
@@ -32,7 +33,8 @@ internal static class DashboardReport
             ["tech"] = LoadTech(outputDir),
             ["drawdown"] = LoadDrawdown(outputDir),
             ["turnover"] = LoadTurnover(outputDir),
-            ["chinextTurnover"] = LoadChinextTurnover(outputDir)
+            ["chinextTurnover"] = LoadChinextTurnover(outputDir),
+            ["runHistory"] = RunLog.LoadHistory(outputDir)
         };
 
         string template = ReadTemplate();

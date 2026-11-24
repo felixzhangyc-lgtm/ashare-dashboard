@@ -442,6 +442,85 @@
       line-height: 1.55;
       font-variant-numeric: tabular-nums;
     }
+    .run-status-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 14px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .run-status-box.ok { border-left: 4px solid var(--pos); }
+    .run-status-box.warn { border-left: 4px solid #d97706; background: #fffcf5; }
+    .run-status-box.err { border-left: 4px solid var(--neg); background: #fffafa; }
+    .run-status-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 10px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+    }
+    .run-status-head::-webkit-details-marker { display: none; }
+    .run-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    .run-dot.ok { background: var(--pos); }
+    .run-dot.warn { background: #d97706; }
+    .run-dot.err { background: var(--neg); }
+    .run-status-body {
+      padding: 0 14px 12px;
+      border-top: 1px solid var(--border);
+      background: #fff;
+    }
+    .mod-chip-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+      gap: 8px;
+      margin: 10px 0;
+    }
+    .mod-chip {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+      background: #fafbfc;
+    }
+    .mod-chip.err { border-color: #f3c6c6; background: #fff6f6; }
+    .mod-chip-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 600;
+      margin-bottom: 3px;
+    }
+    .mod-chip-meta { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+    .mod-chip-err {
+      margin-top: 4px;
+      color: var(--neg);
+      font-size: 11px;
+      word-break: break-all;
+      line-height: 1.4;
+    }
+    .run-log-wrap {
+      max-height: 280px;
+      overflow-y: auto;
+    }
+    .run-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .run-link:hover { text-decoration: underline; }
     @media (max-width: 960px) {
       .thermo-panel, .cycle-timer-grid { grid-template-columns: 1fr; }
     }
@@ -473,6 +552,7 @@
       <span><strong>缩放技巧：</strong>图表内支持<strong>鼠标滚轮放大</strong>、<strong>拖拽平移</strong>、底部<strong>时间轴滑块</strong>，也可点右上角工具栏的「区域缩放」框选右侧局部，或点「全屏放大」单独精看（按 Esc 退出）。纵轴会随缩放区间自动拉伸。</span>
     </div>
 
+    <section id="run-status-wrap"></section>
     <section class="kpi-grid" id="kpi-grid"></section>
 
     <!-- 1. Industry -->
@@ -1963,6 +2043,119 @@
     window.addEventListener("keydown", (e) => { if (e.key === "Escape") exitAllFullscreen(); });
     window.addEventListener("resize", resizeAll);
 
+    const escHtml = (s) => String(s ?? "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+    function buildRunStatus() {
+      const wrap = document.getElementById("run-status-wrap");
+      if (!wrap) return;
+      const runs = Array.isArray(DATA.runHistory) ? DATA.runHistory : [];
+
+      // Cross-check freshness across peer charts (holiday-safe: only compares same-cadence charts)
+      const lagWarnings = [];
+      const marketDates = [
+        DATA.tech ? { label: "成长红利", d: DATA.tech.latestDate } : null,
+        DATA.turnover ? { label: "全A温度计", d: DATA.turnover.latestDate } : null,
+        DATA.chinextTurnover ? { label: "创业板温度计", d: DATA.chinextTurnover.latestDate } : null
+      ].filter(Boolean);
+      if (marketDates.length > 1) {
+        const maxM = marketDates.map(x => x.d).sort().slice(-1)[0];
+        marketDates.filter(x => x.d < maxM).forEach(x => lagWarnings.push(`${x.label}(${x.d} 落后于 ${maxM})`));
+      }
+      const marginDates = [
+        DATA.industry ? { label: "行业融资", d: DATA.industry.latestDate } : null,
+        DATA.drawdown ? { label: "两融回撤", d: DATA.drawdown.latestDate } : null
+      ].filter(Boolean);
+      if (marginDates.length > 1) {
+        const maxR = marginDates.map(x => x.d).sort().slice(-1)[0];
+        marginDates.filter(x => x.d < maxR).forEach(x => lagWarnings.push(`${x.label}(${x.d} 落后于 ${maxR})`));
+      }
+
+      if (runs.length === 0 && lagWarnings.length === 0) {
+        wrap.innerHTML = "";
+        return;
+      }
+
+      const latest = runs[0] || null;
+      const hasErr = latest && latest.failCount > 0;
+      const hasLag = lagWarnings.length > 0;
+      const level = hasErr ? "err" : hasLag ? "warn" : "ok";
+
+      let headline = "";
+      if (hasErr) {
+        const failedNames = (latest.modules || []).filter(m => m.status !== "ok").map(m => m.label).join("、");
+        headline = `<span class="run-dot err"></span><strong>云端更新异常：</strong>最近一次运行（${escHtml(latest.timestamp)} · ${escHtml(latest.trigger)}）有 <strong>${latest.failCount}</strong> 个模块失败（${escHtml(failedNames)}），其余 ${latest.okCount} 个已正常更新。`;
+      } else if (latest) {
+        headline = `<span class="run-dot ${level}"></span><strong>云端运行正常（${latest.okCount}/${latest.modules?.length ?? 5} 成功）</strong>` +
+          ` ｜ 最近运行：${escHtml(latest.timestamp)}（${escHtml(latest.trigger)}，耗时 ${Number(latest.totalSeconds).toFixed(1)}s）`;
+      } else {
+        headline = `<span class="run-dot warn"></span><strong>数据一致性提示：</strong>`;
+      }
+      if (hasLag) {
+        headline += ` ｜ <span style="color:#b45309;font-weight:600;">数据滞后提示：${escHtml(lagWarnings.join("；"))}</span>`;
+      }
+
+      const runLinkHtml = latest?.runUrl
+        ? `<a class="run-link" href="${escHtml(latest.runUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation();">查看 GitHub 原始日志 ↗</a>`
+        : "";
+
+      const chipsHtml = latest?.modules ? `
+        <div class="mod-chip-grid">
+          ${latest.modules.map(m => {
+            const isErr = m.status !== "ok";
+            return `
+              <div class="mod-chip ${isErr ? "err" : ""}">
+                <div class="mod-chip-title">
+                  <span>${escHtml(m.label)}</span>
+                  <span class="state-badge ${isErr ? "state-hot" : "state-cold"}">${isErr ? "失败" : "成功"}</span>
+                </div>
+                <div class="mod-chip-meta">最新日期：${escHtml(m.latestDate)} ｜ 耗时 ${Number(m.durationSec).toFixed(1)}s</div>
+                ${isErr ? `<div class="mod-chip-err">${escHtml(m.error)}</div>` : ""}
+              </div>`;
+          }).join("")}
+        </div>` : "";
+
+      const rowsHtml = runs.map(r => {
+        const stCls = r.failCount === 0 ? "state-cold" : r.okCount === 0 ? "state-hot" : "state-warm";
+        const stTxt = r.failCount === 0 ? `全绿 ${r.okCount}/${r.modules?.length ?? 5}` : `异常 ${r.failCount} 项`;
+        const detail = r.failCount === 0
+          ? (r.modules || []).map(m => `${m.label}:${m.latestDate}`).join(" · ")
+          : (r.modules || []).filter(m => m.status !== "ok").map(m => `${m.label}: ${m.error}`).join("；");
+        const link = r.runUrl ? `<a class="run-link" href="${escHtml(r.runUrl)}" target="_blank" rel="noopener">日志 ↗</a>` : "—";
+        return `<tr>
+          <td style="white-space:nowrap;">${escHtml(r.timestamp)}</td>
+          <td style="white-space:nowrap;">${escHtml(r.trigger)}</td>
+          <td style="white-space:nowrap;"><span class="state-badge ${stCls}">${stTxt}</span></td>
+          <td style="white-space:nowrap;">${Number(r.totalSeconds).toFixed(1)}s</td>
+          <td style="font-size:11px;color:${r.failCount > 0 ? "#b82323" : "#475569"};word-break:break-word;">${escHtml(detail)}</td>
+          <td style="white-space:nowrap;">${link}</td>
+        </tr>`;
+      }).join("");
+
+      const historyTableHtml = runs.length > 0 ? `
+        <div class="run-log-wrap">
+          <table class="ref-table">
+            <thead><tr><th>北京时间</th><th>触发方式</th><th>状态</th><th>总耗时</th><th>数据日期 / 报错摘要</th><th>Actions</th></tr></thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>` : "";
+
+      wrap.innerHTML = `
+        <details class="run-status-box ${level}" ${hasErr ? "open" : ""}>
+          <summary class="run-status-head">
+            <span>${headline}</span>
+            <span style="display:flex;align-items:center;gap:12px;color:var(--muted);font-size:12px;">
+              ${runLinkHtml}
+              <span>近 ${runs.length} 次运行日志 ▾</span>
+            </span>
+          </summary>
+          <div class="run-status-body">
+            ${chipsHtml}
+            ${historyTableHtml}
+          </div>
+        </details>`;
+    }
+
     // Boot
     window.addEventListener("DOMContentLoaded", () => {
       if (typeof echarts === "undefined") {
@@ -1971,6 +2164,7 @@
         });
         return;
       }
+      buildRunStatus();
       buildKpis();
       initIndustry();
       initTech();

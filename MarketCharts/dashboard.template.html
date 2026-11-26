@@ -579,9 +579,9 @@
           </div>
           <div class="btn-group" id="filter-industry">
             <span class="btn-label">行业筛选：</span>
-            <button class="btn active" data-mode="all">全部(31)</button>
+            <button class="btn" data-mode="all">全部(31)</button>
             <button class="btn" data-mode="no-elec">隐藏「电子」</button>
-            <button class="btn" data-mode="top10">前10</button>
+            <button class="btn active" data-mode="top10">前10</button>
             <button class="btn" data-mode="bottom10">后10</button>
             <button class="btn" data-mode="none">清空自选</button>
           </div>
@@ -922,7 +922,11 @@
       charts.industry = chart;
 
       const deltaLookup = {};
-      ind.series.forEach(s => { deltaLookup[s.name] = s.deltas; });
+      const defaultSelected = {};
+      ind.series.forEach((s, i) => {
+        deltaLookup[s.name] = s.deltas;
+        defaultSelected[s.name] = i < 10;
+      });
 
       chart.setOption({
         animation: false,
@@ -953,6 +957,7 @@
         toolbox: commonToolbox("industry_margin_interactive"),
         legend: {
           type: "plain",
+          selected: defaultSelected,
           bottom: 48,
           left: 20,
           right: 20,

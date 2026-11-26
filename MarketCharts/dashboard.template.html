@@ -535,10 +535,10 @@
       border-radius: 10px;
       padding: 12px 14px;
     }
-    .regime-box.state-bull { border-left: 4px solid #dc2626; background: #fffafa; }
-    .regime-box.state-warn { border-left: 4px solid #f59e0b; background: #fffdf5; }
-    .regime-box.state-bear { border-left: 4px solid #10b981; background: #f5fcf9; }
-    .regime-box.state-bottom { border-left: 4px solid #0284c7; background: #f3faff; }
+    .regime-box.risk-bull { border-left: 4px solid #1a8a63; background: #f6fcf9; }
+    .regime-box.risk-warn { border-left: 4px solid #d97706; background: #fffdf5; }
+    .regime-box.risk-bear { border-left: 4px solid #c43c3c; background: #fffafa; }
+    .regime-box.risk-bottom { border-left: 4px solid #0284c7; background: #f3faff; }
     .state-ice { background: #e0f2fe; color: #0369a1; }
     .regime-meter-top {
       display: grid;
@@ -599,6 +599,10 @@
       background: #eef2f6;
       color: #1f2a33;
     }
+    .risk-badge-bear { background: #fcecec; color: #c43c3c; }
+    .risk-badge-warn { background: #fff3df; color: #b66c00; }
+    .risk-badge-bottom { background: #e0f2fe; color: #0369a1; }
+    .risk-badge-bull { background: #e8f6f0; color: #1a8a63; }
     .advice-bullets {
       margin: 6px 0 10px;
       padding-left: 18px;
@@ -970,7 +974,7 @@
 
       if (DATA.regime && DATA.regime.latest) {
         const rg = DATA.regime.latest;
-        const badgeCls = rg.regime === "BULL" ? "state-hot" : rg.regime === "WARN" ? "state-warm" : rg.regime === "BOTTOM" ? "state-ice" : "state-cold";
+        const badgeCls = rg.regime === "BULL" ? "risk-badge-bull" : rg.regime === "WARN" ? "risk-badge-warn" : rg.regime === "BOTTOM" ? "risk-badge-bottom" : "risk-badge-bear";
         const shortRegime = rg.regime === "BULL" ? "右侧牛市" : rg.regime === "WARN" ? "牛转熊预警" : rg.regime === "BOTTOM" ? "冰点筑底区" : "熊市退潮";
         const posHint = rg.regime === "BULL" ? "建议仓位 70%-100%" : rg.regime === "WARN" ? "建议仓位 30%-50%" : rg.regime === "BOTTOM" ? "建议仓位 20%-40% 分批" : "建议仓位 0%-20% 防守";
         items.push({
@@ -1080,12 +1084,12 @@
       document.getElementById("sub-regime").textContent =
         `${rg.firstDate} 至 ${rg.latestDate}（共 ${rg.dates.length} 个交易日，对齐两融与创业板最新共同交易日；默认展示 2024-07-01 至今，向左拖动标尺可回溯 2016 年起全周期）`;
 
-      const stateClass = cur.regime === "BULL" ? "state-bull"
-        : cur.regime === "WARN" ? "state-warn"
-        : cur.regime === "BOTTOM" ? "state-bottom" : "state-bear";
-      const badgeCls = cur.regime === "BULL" ? "state-hot"
-        : cur.regime === "WARN" ? "state-warm"
-        : cur.regime === "BOTTOM" ? "state-ice" : "state-cold";
+      const riskClass = cur.regime === "BULL" ? "risk-bull"
+        : cur.regime === "WARN" ? "risk-warn"
+        : cur.regime === "BOTTOM" ? "risk-bottom" : "risk-bear";
+      const badgeCls = cur.regime === "BULL" ? "risk-badge-bull"
+        : cur.regime === "WARN" ? "risk-badge-warn"
+        : cur.regime === "BOTTOM" ? "risk-badge-bottom" : "risk-badge-bear";
 
       // Smooth A-share temperature gradient: 0 Ice Blue -> 36 Teal Green -> 50 Amber -> 65 Warm Orange -> 100 Bull Red
       const scoreColor = (v) => {
@@ -1194,7 +1198,7 @@
       ];
 
       hero.innerHTML = `
-        <div class="regime-box ${stateClass}">
+        <div class="regime-box" style="border-left:4px solid ${scoreColor(cur.slowScore)};">
           <div class="regime-meter-top">
             <div id="chart-regime-gauge" class="regime-gauge-box"></div>
             <div class="pillar-list">
@@ -1214,13 +1218,13 @@
             <span>当日分 <strong>${cur.rawScore.toFixed(1)}</strong> ｜ 5日预警线 <strong>${cur.fastScore.toFixed(1)}</strong>（阈值 50） ｜ 10日确认线 <strong>${cur.slowScore.toFixed(1)}</strong>（转熊 36 / 转牛 65）</span>
           </div>
         </div>
-        <div class="regime-box ${stateClass}">
+        <div class="regime-box ${riskClass}">
           <div class="advice-head">
             <div>
               <span class="state-badge ${badgeCls}" style="font-size:13px;padding:3px 10px;">${cur.regimeLabel}</span>
               <span style="font-size:12px;color:var(--muted);margin-left:8px;">已持续 <strong>${cur.daysInRegime}</strong> 个交易日（自 ${cur.regimeStartDate}）</span>
             </div>
-            <span class="pos-pill">${posRange}</span>
+            <span class="pos-pill ${badgeCls}">${posRange}</span>
           </div>
           <ul class="advice-bullets">
             ${bullets.map(b => `<li>${b}</li>`).join("")}

@@ -239,9 +239,9 @@ internal static class ReportCharts
         chart.Axis(right, chart.Plot.Right, right: true);
         chart.Dates(months: 12, format: "yyyy");
 
-        chart.HLine(RegimeScoreReport.BullThreshold, left, SKColor.Parse("#167a58"), dashed: true, label: "65 右侧转牛线");
+        chart.HLine(RegimeScoreReport.BullThreshold, left, SKColor.Parse("#dc2626"), dashed: true, label: "65 右侧转牛线");
         chart.HLine(RegimeScoreReport.WarnThreshold, left, Orange, dashed: true, label: "50 预警线");
-        chart.HLine(RegimeScoreReport.BearThreshold, left, Red, dashed: true, label: "36 转熊确认线");
+        chart.HLine(RegimeScoreReport.BearThreshold, left, SKColor.Parse("#0f766e"), dashed: true, label: "36 转熊确认线");
 
         chart.Series(fastScore, left, Orange.WithAlpha(185), 1.35f);
         chart.Series(slowScore, left, Red, 2.25f);
@@ -254,9 +254,9 @@ internal static class ReportCharts
             var sig = signals[k];
             var color = sig.Kind switch
             {
-                "牛转熊确认" => SKColor.Parse("#b82323"),
-                "熊转牛确认" => SKColor.Parse("#15803d"),
-                _ => SKColor.Parse("#0d7490")
+                "牛转熊确认" => SKColor.Parse("#0f766e"),
+                "熊转牛确认" => SKColor.Parse("#dc2626"),
+                _ => SKColor.Parse("#0284c7")
             };
             bool crowded = sig.Index - prevIdx < 160;
             bool alignLeft = sig.Index > dates.Length - 80 || (crowded && k % 2 == 1);
@@ -284,7 +284,7 @@ internal static class ReportCharts
             ("创业板指（右轴）", Blue),
             ("创业板指 MA60", Blue.WithAlpha(120))
         ], x: 140, y: 752, columns: 4, columnWidth: 318);
-        chart.Caption("四维权重：趋势30% + 两融回撤水位25% + 两融真实增速25% + 创业板换手热度20%（背景色带：绿=牛市 黄=预警 红=熊市 青=冰点）", y: 800);
+        chart.Caption("四维权重：趋势30% + 两融回撤水位25% + 两融真实增速25% + 创业板换手热度20%（背景色带：红=牛市 黄=预警 绿=熊市 冰蓝=冰点）", y: 800);
         chart.Save(path);
     }
 
@@ -417,10 +417,10 @@ internal static class ReportCharts
                 {
                     var color = regimes[segStart] switch
                     {
-                        "BULL" => SKColor.Parse("#16a34a").WithAlpha(24),
-                        "WARN" => SKColor.Parse("#d97706").WithAlpha(32),
-                        "BOTTOM" => SKColor.Parse("#0891b2").WithAlpha(34),
-                        _ => SKColor.Parse("#dc2626").WithAlpha(22)
+                        "BULL" => SKColor.Parse("#dc2626").WithAlpha(22),
+                        "WARN" => SKColor.Parse("#f59e0b").WithAlpha(30),
+                        "BOTTOM" => SKColor.Parse("#0284c7").WithAlpha(34),
+                        _ => SKColor.Parse("#10b981").WithAlpha(24)
                     };
                     float x0 = Math.Max(Plot.Left, X(dates[segStart]));
                     float x1 = Math.Min(Plot.Right, i < regimes.Length ? X(dates[i]) : X(dates[^1]));

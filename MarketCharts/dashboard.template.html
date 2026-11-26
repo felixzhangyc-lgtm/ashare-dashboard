@@ -1020,20 +1020,6 @@
         });
       }
 
-      if (DATA.turnover) {
-        const tv = DATA.turnover;
-        const i = tv.dates.length - 1;
-        const cur = tv.turnover[i];
-        const cls = cur >= 3.0 ? "state-hot" : cur >= 2.2 ? "state-warm" : cur <= 1.0 ? "state-cold" : "state-mid";
-        items.push({
-          target: "turnover",
-          title: "全A流通换手率（温度计）",
-          date: tv.latestDate,
-          main: `${cur.toFixed(2)}% <span class="state-badge ${cls}">${tv.latestState}</span>`,
-          sub: `MA5 ${tv.ma5[i].toFixed(2)}% ｜ MA20 ${tv.ma20[i].toFixed(2)}% ｜ 5年分位 ${tv.pct5y[i].toFixed(1)}%<br/>成交额 ${(tv.totalAmountYi[i] / 10000).toFixed(2)} 万亿 / 流通市值 ${tv.floatCapWanYi[i].toFixed(2)} 万亿`
-        });
-      }
-
       if (DATA.chinextTurnover) {
         const cy = DATA.chinextTurnover;
         const i = cy.dates.length - 1;

@@ -1,5 +1,64 @@
 [
   {
+    "timestamp": "2026-11-26 16:39:19",
+    "trigger": "定时自动",
+    "status": "ok",
+    "totalSeconds": 24.3,
+    "okCount": 6,
+    "failCount": 0,
+    "runUrl": "https://github.com/felixzhangyc-lgtm/ashare-dashboard/actions/runs/45784923553",
+    "modules": [
+      {
+        "key": "industry",
+        "label": "行业融资",
+        "status": "ok",
+        "durationSec": 2.7,
+        "latestDate": "2026-11-25",
+        "error": ""
+      },
+      {
+        "key": "tech",
+        "label": "成长红利",
+        "status": "ok",
+        "durationSec": 1.7,
+        "latestDate": "2026-11-26",
+        "error": ""
+      },
+      {
+        "key": "drawdown",
+        "label": "两融回撤",
+        "status": "ok",
+        "durationSec": 5.9,
+        "latestDate": "2026-11-25",
+        "error": ""
+      },
+      {
+        "key": "turnover",
+        "label": "全A温度计",
+        "status": "ok",
+        "durationSec": 11.4,
+        "latestDate": "2026-11-26",
+        "error": ""
+      },
+      {
+        "key": "chinext",
+        "label": "创业板温度计",
+        "status": "ok",
+        "durationSec": 2.2,
+        "latestDate": "2026-11-26",
+        "error": ""
+      },
+      {
+        "key": "regime",
+        "label": "四维牛熊景气度",
+        "status": "ok",
+        "durationSec": 0.4,
+        "latestDate": "2026-11-26",
+        "error": ""
+      }
+    ]
+  },
+  {
     "timestamp": "2026-11-26 16:01:00",
     "trigger": "手动触发",
     "status": "ok",

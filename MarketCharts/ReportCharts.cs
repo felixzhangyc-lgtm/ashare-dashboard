@@ -228,7 +228,7 @@ internal static class ReportCharts
         double[] fastScore, double[] slowScore, string[] regimes, string banner, RegimeScoreReport.SignalMarker[] signals)
     {
         using var chart = new Chart(dates, 1520, 840, new SKRect(102, 110, 1396, 682), endPaddingDays: 80);
-        chart.Title($"创业板四维牛熊景气度仪表盘（{Csv.Date(dates[0])} 至 {Csv.Date(dates[^1])}）");
+        chart.Title($"创业板四维牛熊景气度仪表盘 {RegimeScoreReport.ModelVersion}（{Csv.Date(dates[0])} 至 {Csv.Date(dates[^1])}）");
         chart.Caption(banner, y: 78);
 
         var left = new Axis(0, 100, 10, "四维综合景气分（0-100）", 1, "", Ink);
@@ -254,7 +254,7 @@ internal static class ReportCharts
             var sig = signals[k];
             var color = sig.Kind switch
             {
-                "牛转熊确认" => SKColor.Parse("#0f766e"),
+                "牛转熊确认" or "天量破位转熊" => SKColor.Parse("#0f766e"),
                 "熊转牛确认" => SKColor.Parse("#dc2626"),
                 _ => SKColor.Parse("#0284c7")
             };
@@ -262,7 +262,7 @@ internal static class ReportCharts
             bool alignLeft = sig.Index > dates.Length - 80 || (crowded && k % 2 == 1);
             float dy = sig.Kind switch
             {
-                "牛转熊确认" => crowded ? -26 : -14,
+                "牛转熊确认" or "天量破位转熊" => crowded ? -26 : -14,
                 "冰点筑底区" => crowded ? 32 : 20,
                 _ => crowded ? -14 : 20
             };
@@ -284,7 +284,7 @@ internal static class ReportCharts
             ("创业板指（右轴）", Blue),
             ("创业板指 MA60", Blue.WithAlpha(120))
         ], x: 140, y: 752, columns: 4, columnWidth: 318);
-        chart.Caption("四维权重：趋势30% + 两融回撤水位25% + 两融真实增速25% + 创业板换手热度20%（背景色带：红=牛市 黄=预警 绿=熊市 冰蓝=冰点）", y: 800);
+        chart.Caption("A-2.0（V2-2）：四维景气分 + 天量95日提前预警 + 破MA60(2日)/5日分<55快逃（背景色带：红=牛市 黄=预警 绿=熊市 冰蓝=冰点）", y: 800);
         chart.Save(path);
     }
 

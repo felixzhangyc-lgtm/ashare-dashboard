@@ -521,9 +521,11 @@ internal static class DashboardReport
             events,
             latest = new
             {
+                version = RegimeScoreReport.ModelVersion,
                 date = dates[last],
                 isProvisional = cur.IsProvisional,
                 marginDate = Csv.Date(cur.MarginDate),
+                climaxArmed = cur.ClimaxArmed,
                 regime = cur.Regime,
                 regimeLabel = RegimeScoreReport.RegimeLabel(cur.Regime),
                 daysInRegime,

@@ -682,7 +682,7 @@
       <div class="card-header">
         <div class="card-title-row">
           <div>
-            <h2>1. 创业板四维牛熊景气度仪表盘（趋势 + 两融水位 + 两融增速 + 换手热度）</h2>
+            <h2>1. 创业板四维牛熊景气度仪表盘 <span style="font-size:12px;font-weight:600;color:#637381;">A-2.0</span>（趋势 + 两融水位 + 两融增速 + 换手热度）</h2>
             <span class="card-subtitle" id="sub-regime"></span>
           </div>
           <div class="btn-group">
@@ -714,8 +714,8 @@
         <summary>展开查看：四维景气度历次牛熊转换 / 预警 / 冰点触发明细（2016至今，严格无未来函数）与回测摘要</summary>
         <div id="regime-signal-table"></div>
         <div style="font-size:12px;color:#475569;line-height:1.7;margin-top:8px;">
-          <strong>指标合成口径：</strong>趋势分(30%：创指vsMA60/MA120 + MA60斜率) + 两融回撤水位分(25%：-12%~0%) + 两融真实余额增速分(25%：20日/60日真实涨跌幅，剔除252日滚动高点伪信号) + 创业板换手热度分(20%：MA20水位 + MA5/MA20动量 + 天量峰后退潮扣分)。<br/>
-          <strong>状态切换规则：</strong>牛市中 <strong>5日均分 &lt; 50</strong> 触发牛转熊预警；<strong>10日均分 &lt; 36</strong> 确认转熊；熊市中同时满足深跌≥25%+两融回撤≤-12%+两融20日增速止血≥-2.5%+换手MA5≤2.0%(或地量≥50日)满5日进入<strong>左侧冰点筑底区</strong>；<strong>10日均分 ≥ 65 + 站上MA60 + 两融20日增速 &gt; 0</strong> 确认右侧熊转牛。2016–2026 严格无前视回测：总收益 +103.8%（同期创指 -12.3%），最大回撤由 -57.0% 降至 -29.8%，11年仅10次牛熊切换。
+          <strong>模型版本 A-2.0（V2-2 混合快逃版）· 指标合成口径：</strong>趋势分(30%：创指vsMA60/MA120 + MA60斜率) + 两融回撤水位分(25%：-12%~0%) + 两融真实余额增速分(25%：20日/60日真实涨跌幅，剔除252日滚动高点伪信号) + 创业板换手热度分(20%：MA20水位 + MA5/MA20动量 + 天量峰后退潮扣分)。<br/>
+          <strong>状态切换规则：</strong>① <strong>天量提前预警（A-2.0新增）</strong>：本轮牛市内出现有效天量峰（换手MA5≥5.0%且MA20≥4.0%）后连续 <strong>≥95日未再创新高</strong>，提前进入「天量退潮预警」（锁一半利润、上膛快逃开关）；上膛期间一旦<strong>创指连续2日跌破MA60</strong> 或 <strong>5日景气分 &lt; 55</strong>，立即触发「天量破位转熊」提前清仓。② <strong>常规四维防线</strong>：牛市中 5日均分 &lt; 50 预警、10日均分 &lt; 36 确认转熊（守住无天量慢顶如2021年底）；熊市中满足四重冰点满5日进入<strong>左侧冰点筑底区</strong>；10日均分 ≥ 65 + 站上MA60 + 两融20日增速 &gt; 0 确认右侧熊转牛。2016–2026 严格无前视回测：两档空仓总收益 <strong>+113.4%</strong>（阶梯半仓 <strong>+90.1%</strong>，同期创指 -12.3%），11年仅10次牛熊切换。
         </div>
       </details>
     </section>
@@ -1152,18 +1152,33 @@
         ];
       } else if (cur.regime === "WARN") {
         posRange = "参考仓位：30% – 50%（逢高降仓防守）";
-        bullets = [
-          "<strong>核心策略</strong>：5 日景气分已跌破 50，说明上涨动能钝化或杠杆出现松动；建议<strong>逢反抽降低高波动成长与杠杆仓位</strong>，转向均衡/红利低波防御。",
-          "<strong>严禁动作</strong>：在预警解除前<strong>不要逆势加仓或补仓</strong>，防范演变为类似 2022-01 / 2026-07 的主跌浪。",
-          "<strong>双向拐点</strong>：若 10 日分跌破 <strong>36</strong> 将正式确认牛转熊（全面转防守）；若 10 日分重返 <strong>≥ 60</strong> 且创指收复 MA60 则解除预警。"
-        ];
-        checkTitle = "解除预警 vs 转熊确认 实时监控";
-        checks = [
-          { pass: cur.slowScore >= 60, text: `解除预警条件①：10日分 ≥ 60（当前 ${cur.slowScore.toFixed(1)}）` },
-          { pass: cur.indexVal > cur.ma60, text: `解除预警条件②：创指收复 MA60（当前 ${signed(vsMa60, 1)}%）` },
-          { pass: cur.slowScore >= 36, text: `未触发转熊确认：10日分 ≥ 36（当前 ${cur.slowScore.toFixed(1)}）` },
-          { pass: cur.marginChg20 >= 0, text: `两融20日真实增速企稳 ≥ 0%（当前 ${signed(cur.marginChg20, 1)}%）` }
-        ];
+        if (cur.climaxArmed) {
+          bullets = [
+            `<strong>天量退潮预警（A-2.0 快逃模式已上膛）</strong>：本轮牛市天量峰已连续 <strong>${cur.daysSincePeak}</strong> 个交易日未再超越（≥95日阈值），历史经验表明后续大概率进入鱼尾派发期；建议先<strong>锁定一半利润（降至 50% 以下）并解除杠杆</strong>，保留底仓博弈冲顶。`,
+            "<strong>快逃确认线</strong>：上膛状态下无需等 10 日分跌破 36——一旦<strong>创业板指连续 2 日收盘跌破 MA60</strong>，或 <strong>5 日景气分跌破 55</strong>，立即触发「天量破位转熊」全面防守。",
+            "<strong>解除条件</strong>：唯有市场再度放量创出新一轮换手天量峰，方可解除天量预警回归满仓牛市。"
+          ];
+          checkTitle = "天量预警已上膛 · 快逃触发线实时监控";
+          checks = [
+            { pass: cur.indexVal > cur.ma60, text: `未触发快逃①：创指仍站稳 MA60（当前 ${signed(vsMa60, 1)}%，连破2日转熊）` },
+            { pass: cur.fastScore >= 55, text: `未触发快逃②：5日景气分 ≥ 55（当前 ${cur.fastScore.toFixed(1)}）` },
+            { pass: cur.slowScore >= 36, text: `常规底线：10日景气分 ≥ 36（当前 ${cur.slowScore.toFixed(1)}）` },
+            { pass: cur.marginChg20 >= 0, text: `两融20日真实增速仍正（当前 ${signed(cur.marginChg20, 1)}%）` }
+          ];
+        } else {
+          bullets = [
+            "<strong>核心策略</strong>：5 日景气分已跌破 50，说明上涨动能钝化或杠杆出现松动；建议<strong>逢反抽降低高波动成长与杠杆仓位</strong>，转向均衡/红利低波防御。",
+            "<strong>严禁动作</strong>：在预警解除前<strong>不要逆势加仓或补仓</strong>，防范演变为类似 2022-01 / 2026-07 的主跌浪。",
+            "<strong>双向拐点</strong>：若 10 日分跌破 <strong>36</strong> 将正式确认牛转熊（全面转防守）；若 10 日分重返 <strong>≥ 60</strong> 且创指收复 MA60 则解除预警。"
+          ];
+          checkTitle = "解除预警 vs 转熊确认 实时监控";
+          checks = [
+            { pass: cur.slowScore >= 60, text: `解除预警条件①：10日分 ≥ 60（当前 ${cur.slowScore.toFixed(1)}）` },
+            { pass: cur.indexVal > cur.ma60, text: `解除预警条件②：创指收复 MA60（当前 ${signed(vsMa60, 1)}%）` },
+            { pass: cur.slowScore >= 36, text: `未触发转熊确认：10日分 ≥ 36（当前 ${cur.slowScore.toFixed(1)}）` },
+            { pass: cur.marginChg20 >= 0, text: `两融20日真实增速企稳 ≥ 0%（当前 ${signed(cur.marginChg20, 1)}%）` }
+          ];
+        }
       } else if (cur.regime === "BOTTOM") {
         posRange = "参考仓位：20% – 40%（左侧冰点·勿割肉可定投）";
         bullets = [
@@ -1306,7 +1321,7 @@
       if (sigBox && rg.events && rg.events.length) {
         const rowsHtml = [...rg.events].reverse().map(ev => {
           const bCls = ev.kind === "熊转牛确认" ? "state-hot"
-            : ev.kind === "牛转熊确认" || ev.kind === "筑底中止" ? "state-cold"
+            : (ev.kind === "牛转熊确认" || ev.kind === "天量破位转熊" || ev.kind === "筑底中止") ? "state-cold"
             : ev.kind === "冰点筑底区" ? "state-ice" : "state-warm";
           return `<tr>
             <td><span class="state-badge ${bCls}">${ev.kind}</span></td>
@@ -1363,8 +1378,8 @@
         ]) : [];
 
         const markPoints = showSignals ? rg.events.filter(ev => ev.kind !== "解除预警" && ev.kind !== "筑底中止").map(ev => {
-          const isBear = ev.kind === "牛转熊确认";
-          const isWarn = ev.kind === "牛转熊预警";
+          const isBear = ev.kind === "牛转熊确认" || ev.kind === "天量破位转熊";
+          const isWarn = ev.kind === "牛转熊预警" || ev.kind === "天量退潮预警";
           const isBull = ev.kind === "熊转牛确认";
           return {
             name: ev.kind,

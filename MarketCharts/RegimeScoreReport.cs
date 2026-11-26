@@ -14,8 +14,12 @@ internal static class RegimeScoreReport
     public const double RecoverThreshold = 60.0;
     public const double WarnThreshold = 50.0;
     public const double BearThreshold = 36.0;
+    public const double ClimaxFastBearThreshold = 55.0;
+    public const int ClimaxEarlyWarnDays = 95;
+    public const int ClimaxReenterCooldownDays = 40;
     public const int FastSmoothDays = 5;
     public const int SlowSmoothDays = 10;
+    public const string ModelVersion = "A-2.0";
 
     private static readonly string[] Header =
     [
@@ -50,7 +54,8 @@ internal static class RegimeScoreReport
         string Regime,
         string Signal,
         bool IsProvisional,
-        DateOnly MarginDate);
+        DateOnly MarginDate,
+        bool ClimaxArmed);
 
     public sealed record SignalMarker(int Index, string Kind, string Label);
 
@@ -64,11 +69,11 @@ internal static class RegimeScoreReport
         var signals = new List<SignalMarker>();
         for (int i = 0; i < data.Length; i++)
         {
-            if (data[i].Signal is "牛转熊确认" or "熊转牛确认" or "冰点筑底区")
+            if (data[i].Signal is "牛转熊确认" or "天量破位转熊" or "熊转牛确认" or "冰点筑底区")
             {
                 string shortTag = data[i].Signal switch
                 {
-                    "牛转熊确认" => "转熊",
+                    "牛转熊确认" or "天量破位转熊" => "转熊",
                     "熊转牛确认" => "转牛",
                     _ => "冰点"
                 };
@@ -270,16 +275,29 @@ internal static class RegimeScoreReport
             slowScore[i] = sSum / sCnt;
         }
 
-        // Strictly causal state machine with wide hysteresis + left-side ice-zone detection
+        // Strictly causal A-2.0 (V2-2) state machine:
+        // 4D composite score + current-bull 95-day climax early warning + fast MA60/55 break exit + left-side ice zone.
         var rows = new Row[n];
         string cur = "BEAR";
         int iceDays = 0;
+        int bullStart = -1;
+        int usedPeakOrigin = -1;
+        bool climaxArmed = false;
+        int belowMa60Days = 0;
+        int climaxBearIdx = -999;
 
         for (int i = 0; i < n; i++)
         {
             double sf = fastScore[i];
             double ss = slowScore[i];
             bool aboveMa60 = joined[i].Idx > ma60[i];
+            belowMa60Days = aboveMa60 ? 0 : belowMa60Days + 1;
+
+            int peakOrigin = joined[i].Peak > 0 ? i - joined[i].Peak : -1;
+            bool validClimax95 = bullStart >= 0
+                && peakOrigin >= bullStart
+                && peakOrigin != usedPeakOrigin
+                && joined[i].Peak >= ClimaxEarlyWarnDays;
 
             bool inIce = idxDd252[i] <= -25.0
                 && joined[i].MarginDd <= -12.0
@@ -293,32 +311,56 @@ internal static class RegimeScoreReport
                 if (ss < BearThreshold)
                 {
                     cur = "BEAR";
+                    climaxArmed = false;
                     sig = "牛转熊确认";
+                }
+                else if (validClimax95)
+                {
+                    cur = "WARN";
+                    climaxArmed = true;
+                    usedPeakOrigin = peakOrigin;
+                    sig = "天量退潮预警";
                 }
                 else if (sf < WarnThreshold)
                 {
                     cur = "WARN";
+                    climaxArmed = false;
                     sig = "牛转熊预警";
                 }
             }
             else if (cur == "WARN")
             {
-                if (ss < BearThreshold)
+                bool fastBear = climaxArmed && (belowMa60Days >= 2 || sf < ClimaxFastBearThreshold);
+                if (ss < BearThreshold || fastBear)
                 {
                     cur = "BEAR";
-                    sig = "牛转熊确认";
+                    if (fastBear)
+                        climaxBearIdx = i;
+                    climaxArmed = false;
+                    sig = fastBear ? "天量破位转熊" : "牛转熊确认";
                 }
-                else if (ss >= RecoverThreshold && aboveMa60)
+                else if (!climaxArmed && ss >= RecoverThreshold && aboveMa60)
                 {
                     cur = "BULL";
+                    sig = "解除预警";
+                }
+                else if (climaxArmed && joined[i].Peak == 0)
+                {
+                    cur = "BULL";
+                    climaxArmed = false;
                     sig = "解除预警";
                 }
             }
             else if (cur == "BEAR")
             {
-                if (ss >= BullThreshold && aboveMa60 && mChg20[i] > 0)
+                if (ss < WarnThreshold)
+                    climaxBearIdx = -999;
+                bool canReenter = i - climaxBearIdx >= ClimaxReenterCooldownDays;
+                if (canReenter && ss >= BullThreshold && aboveMa60 && mChg20[i] > 0)
                 {
                     cur = "BULL";
+                    bullStart = i;
+                    climaxArmed = false;
                     sig = "熊转牛确认";
                 }
                 else if (iceDays >= 5)
@@ -332,6 +374,8 @@ internal static class RegimeScoreReport
                 if (ss >= BullThreshold && aboveMa60 && mChg20[i] > 0)
                 {
                     cur = "BULL";
+                    bullStart = i;
+                    climaxArmed = false;
                     sig = "熊转牛确认";
                 }
                 else if (mChg20[i] <= -5.0 && !aboveMa60)
@@ -365,7 +409,8 @@ internal static class RegimeScoreReport
                 cur,
                 sig,
                 joined[i].IsProvisional,
-                joined[i].MarginDate);
+                joined[i].MarginDate,
+                climaxArmed);
         }
 
         return rows;

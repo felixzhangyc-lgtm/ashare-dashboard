@@ -224,6 +224,70 @@ internal static class ReportCharts
         chart.Save(path);
     }
 
+    public static void RegimeScore(string path, DateOnly[] dates, double[] chinextIndex, double[] ma60,
+        double[] fastScore, double[] slowScore, string[] regimes, string banner, RegimeScoreReport.SignalMarker[] signals)
+    {
+        using var chart = new Chart(dates, 1520, 840, new SKRect(102, 110, 1396, 682), endPaddingDays: 80);
+        chart.Title($"创业板四维牛熊景气度仪表盘（{Csv.Date(dates[0])} 至 {Csv.Date(dates[^1])}）");
+        chart.Caption(banner, y: 78);
+
+        var left = new Axis(0, 100, 10, "四维综合景气分（0-100）", 1, "", Ink);
+        var right = Axis.Fit(chinextIndex, "创业板指（点）", color: Blue);
+
+        chart.RegimeBands(regimes);
+        chart.Axis(left, chart.Plot.Left, right: false, grid: true);
+        chart.Axis(right, chart.Plot.Right, right: true);
+        chart.Dates(months: 12, format: "yyyy");
+
+        chart.HLine(RegimeScoreReport.BullThreshold, left, SKColor.Parse("#167a58"), dashed: true, label: "65 右侧转牛线");
+        chart.HLine(RegimeScoreReport.WarnThreshold, left, Orange, dashed: true, label: "50 预警线");
+        chart.HLine(RegimeScoreReport.BearThreshold, left, Red, dashed: true, label: "36 转熊确认线");
+
+        chart.Series(fastScore, left, Orange.WithAlpha(185), 1.35f);
+        chart.Series(slowScore, left, Red, 2.25f);
+        chart.Series(ma60, right, Blue.WithAlpha(110), 1.3f);
+        chart.Series(chinextIndex, right, Blue.WithAlpha(240), 2.0f);
+
+        int prevIdx = -999;
+        for (int k = 0; k < signals.Length; k++)
+        {
+            var sig = signals[k];
+            var color = sig.Kind switch
+            {
+                "牛转熊确认" => SKColor.Parse("#b82323"),
+                "熊转牛确认" => SKColor.Parse("#15803d"),
+                _ => SKColor.Parse("#0d7490")
+            };
+            bool crowded = sig.Index - prevIdx < 160;
+            bool alignLeft = sig.Index > dates.Length - 80 || (crowded && k % 2 == 1);
+            float dy = sig.Kind switch
+            {
+                "牛转熊确认" => crowded ? -26 : -14,
+                "冰点筑底区" => crowded ? 32 : 20,
+                _ => crowded ? -14 : 20
+            };
+            if (dates[sig.Index].Year == 2024 && sig.Kind == "冰点筑底区")
+            {
+                alignLeft = true;
+                dy = 20;
+            }
+            chart.PointLabel(sig.Index, chinextIndex[sig.Index], right, color, sig.Label, dy, alignLeft);
+            prevIdx = sig.Index;
+        }
+
+        chart.PointLabel(dates.Length - 1, slowScore[^1], left, Red,
+            $"最新 10日 {slowScore[^1]:F1} / 5日 {fastScore[^1]:F1}", -18, alignLeft: true);
+
+        chart.Legend([
+            ("景气分 5日均（预警快线）", Orange),
+            ("景气分 10日均（确认主线）", Red),
+            ("创业板指（右轴）", Blue),
+            ("创业板指 MA60", Blue.WithAlpha(120))
+        ], x: 140, y: 752, columns: 4, columnWidth: 318);
+        chart.Caption("四维权重：趋势30% + 两融回撤水位25% + 两融真实增速25% + 创业板换手热度20%（背景色带：绿=牛市 黄=预警 红=熊市 青=冰点）", y: 800);
+        chart.Save(path);
+    }
+
     private sealed record Axis(double Low, double High, double Step, string Label, double Multiplier, string Suffix, SKColor Color)
     {
         public static Axis Fit(IEnumerable<double> values, string label, double multiplier = 1,
@@ -340,6 +404,34 @@ internal static class ReportCharts
                 return;
             using var paint = Paint(color);
             canvas.DrawRect(Plot.Left, top, Plot.Width, bottom - top, paint);
+        }
+
+        public void RegimeBands(string[] regimes)
+        {
+            if (regimes.Length == 0)
+                return;
+            int segStart = 0;
+            for (int i = 1; i <= regimes.Length; i++)
+            {
+                if (i == regimes.Length || regimes[i] != regimes[segStart])
+                {
+                    var color = regimes[segStart] switch
+                    {
+                        "BULL" => SKColor.Parse("#16a34a").WithAlpha(24),
+                        "WARN" => SKColor.Parse("#d97706").WithAlpha(32),
+                        "BOTTOM" => SKColor.Parse("#0891b2").WithAlpha(34),
+                        _ => SKColor.Parse("#dc2626").WithAlpha(22)
+                    };
+                    float x0 = Math.Max(Plot.Left, X(dates[segStart]));
+                    float x1 = Math.Min(Plot.Right, i < regimes.Length ? X(dates[i]) : X(dates[^1]));
+                    if (x1 > x0)
+                    {
+                        using var paint = Paint(color);
+                        canvas.DrawRect(x0, Plot.Top, x1 - x0, Plot.Height, paint);
+                    }
+                    segStart = i;
+                }
+            }
         }
 
         public void HLine(double value, Axis axis, SKColor color, bool dashed = true, string? label = null)

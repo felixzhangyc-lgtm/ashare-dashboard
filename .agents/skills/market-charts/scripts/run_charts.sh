@@ -33,9 +33,10 @@ needs_build() {
 
 if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   cat <<'EOF'
-Usage: run_charts.sh <industry|tech|drawdown|turnover|chinext|all|everything|dashboard> [--from-csv] [--skip-update] [--output-dir PATH] [--rebuild]
+Usage: run_charts.sh <regime|industry|tech|drawdown|turnover|chinext|all|everything|dashboard> [--from-csv] [--skip-update] [--output-dir PATH] [--rebuild]
 
 Commands:
+  regime        Compute ChiNext 4D Bull/Bear Regime Score Dashboard (ranked #1)
   industry      Update SW L1 industry margin cumulative chart and print daily report
   tech          Update Tech (STAR50+ChiNext ETF) vs Dividend Low-Vol ETF chart
   drawdown      Update Margin Drawdown Speed & ChiNext Index chart

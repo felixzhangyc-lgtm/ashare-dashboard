@@ -27,7 +27,8 @@
 | 更新三张图 | `all` | 上述前三张图 + `outputs/dashboard.html`（完成后自动用 Chrome 打开看板） |
 | 更新换手率顶底图 / 更新顶底温度计 / 换手率图 | `turnover` | `outputs/market-turnover-cycle/ashare_turnover_cycle.png` + `outputs/dashboard.html` |
 | 更新创业板换手率图 / 创业板温度计 / 创业板顶底图 | `chinext` | `outputs/chinext-turnover-cycle/chinext_turnover_cycle.png` + `outputs/dashboard.html` |
-| 更新全部图 / 更新所有图 | `everything` | 全部五张图 + `outputs/dashboard.html`（完成后自动用 Chrome 打开看板） |
+| 更新牛熊景气度 / 四维景气度 / 景气度仪表盘 | `regime` | `outputs/regime-score/chinext_regime_score.png` + `outputs/dashboard.html`（排在看板第 1 位） |
+| 更新全部图 / 更新所有图 | `everything` | 全部六张图 + `outputs/dashboard.html`（完成后自动用 Chrome 打开看板） |
 | 更新交互看板 / 生成看板 | `dashboard` | `outputs/dashboard.html`（基于现有 CSV，支持滚轮/框选/时间窗缩放） |
 | 打开看板 / 用 Chrome 打开面板 | `open -a "Google Chrome" "<项目根目录>/outputs/dashboard.html"` | 直接在 Google Chrome 中打开本地看板 |
 | 离线重绘（不联网，按现有 CSV 重绘） | 对应命令加 `--from-csv` | 对应 PNG + `outputs/dashboard.html` |

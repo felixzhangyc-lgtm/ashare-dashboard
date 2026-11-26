@@ -53,7 +53,10 @@ internal static class RunLog
                 Path.Combine(outputDir, "market-turnover-cycle", "ashare_turnover_cycle.csv")),
             ("chinext", "创业板温度计",
                 () => ChinextTurnoverReport.RunAsync(client, maxDate, Path.Combine(outputDir, "chinext-turnover-cycle"), false),
-                Path.Combine(outputDir, "chinext-turnover-cycle", "chinext_turnover_cycle.csv"))
+                Path.Combine(outputDir, "chinext-turnover-cycle", "chinext_turnover_cycle.csv")),
+            ("regime", "四维牛熊景气度",
+                () => { RegimeScoreReport.Run(outputDir); return Task.CompletedTask; },
+                Path.Combine(outputDir, RegimeScoreReport.SubDir, RegimeScoreReport.FileName + ".csv"))
         };
 
         var results = new List<ModuleResult>(modules.Length);

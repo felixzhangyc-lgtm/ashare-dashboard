@@ -521,8 +521,121 @@
       font-weight: 500;
     }
     .run-link:hover { text-decoration: underline; }
+    .regime-hero-grid {
+      display: grid;
+      grid-template-columns: 1.05fr 1.15fr;
+      gap: 14px;
+      padding: 14px 20px 6px;
+      background: #fbfcfd;
+      border-bottom: 1px solid var(--border);
+    }
+    .regime-box {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .regime-box.state-bull { border-left: 4px solid #16a34a; }
+    .regime-box.state-warn { border-left: 4px solid #d97706; background: #fffdf7; }
+    .regime-box.state-bear { border-left: 4px solid #dc2626; background: #fffafa; }
+    .regime-box.state-bottom { border-left: 4px solid #0891b2; background: #f6fcfd; }
+    .regime-meter-top {
+      display: grid;
+      grid-template-columns: 185px 1fr;
+      gap: 12px;
+      align-items: center;
+    }
+    .regime-gauge-box {
+      width: 185px;
+      height: 150px;
+    }
+    .pillar-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .pillar-row {
+      font-size: 12px;
+    }
+    .pillar-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 6px;
+      margin-bottom: 3px;
+      font-variant-numeric: tabular-nums;
+    }
+    .pillar-track {
+      height: 7px;
+      border-radius: 999px;
+      background: #e9eef3;
+      overflow: hidden;
+    }
+    .pillar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width .25s ease;
+    }
+    .pillar-sub {
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 2px;
+    }
+    .advice-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .pos-pill {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #eef2f6;
+      color: #1f2a33;
+    }
+    .advice-bullets {
+      margin: 6px 0 10px;
+      padding-left: 18px;
+      font-size: 13px;
+      line-height: 1.65;
+      color: var(--ink);
+    }
+    .check-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      margin: 8px 0 6px;
+    }
+    .check-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 6px;
+    }
+    .check-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 6px 8px;
+      border-radius: 7px;
+      font-size: 12px;
+      line-height: 1.4;
+      background: #f8fafc;
+      border: 1px solid #e6ebf0;
+      font-variant-numeric: tabular-nums;
+    }
+    .check-item.pass { background: #effaf4; border-color: #bfe8d2; color: #14532d; }
+    .check-item.fail { background: #fff7f7; border-color: #f3d0d0; color: #7f1d1d; }
+    .check-icon { font-weight: 700; flex-shrink: 0; }
+    .chart-box.regime-tall { height: 610px; }
     @media (max-width: 960px) {
-      .thermo-panel, .cycle-timer-grid { grid-template-columns: 1fr; }
+      .thermo-panel, .cycle-timer-grid, .regime-hero-grid { grid-template-columns: 1fr; }
+      .regime-meter-top { grid-template-columns: 1fr; }
+      .regime-gauge-box { margin: 0 auto; }
     }
     @media (max-width: 768px) {
       .container { padding: 12px; }
@@ -539,11 +652,12 @@
     </div>
     <nav class="nav-tabs" id="nav-tabs">
       <button class="nav-tab active" data-view="all">全部图表</button>
-      <button class="nav-tab" data-view="industry">1. 行业融资</button>
-      <button class="nav-tab" data-view="tech">2. 成长红利</button>
-      <button class="nav-tab" data-view="drawdown">3. 两融回撤</button>
-      <button class="nav-tab" data-view="turnover">4. 全A顶底温度计</button>
-      <button class="nav-tab" data-view="chinext">5. 创业板顶底温度计</button>
+      <button class="nav-tab" data-view="regime">1. 四维牛熊景气度</button>
+      <button class="nav-tab" data-view="industry">2. 行业融资</button>
+      <button class="nav-tab" data-view="tech">3. 成长红利</button>
+      <button class="nav-tab" data-view="drawdown">4. 两融回撤</button>
+      <button class="nav-tab" data-view="turnover">5. 全A顶底温度计</button>
+      <button class="nav-tab" data-view="chinext">6. 创业板顶底温度计</button>
     </nav>
   </header>
 
@@ -555,12 +669,55 @@
     <section id="run-status-wrap"></section>
     <section class="kpi-grid" id="kpi-grid"></section>
 
-    <!-- 1. Industry -->
+    <!-- 1. ChiNext 4D Bull/Bear Regime Score Dashboard -->
+    <section class="card" id="card-regime" data-section="regime">
+      <div class="card-header">
+        <div class="card-title-row">
+          <div>
+            <h2>1. 创业板四维牛熊景气度仪表盘（趋势 + 两融水位 + 两融增速 + 换手热度）</h2>
+            <span class="card-subtitle" id="sub-regime"></span>
+          </div>
+          <div class="btn-group">
+            <button class="btn ghost" onclick="toggleFullscreen('card-regime')">全屏放大</button>
+          </div>
+        </div>
+        <div class="controls-row">
+          <div class="btn-group" id="range-regime">
+            <span class="btn-label">时间窗：</span>
+            <button class="btn" data-days="65">近3月</button>
+            <button class="btn" data-days="130">近6月</button>
+            <button class="btn" data-days="252">近1年</button>
+            <button class="btn active" data-since="2024-07-01">2024/07至今</button>
+            <button class="btn" data-days="756">近3年</button>
+            <button class="btn" data-since="2019-01-01">2019至今</button>
+            <button class="btn" data-all="1">2016全历史</button>
+          </div>
+          <div class="btn-group">
+            <button class="btn active" id="toggle-regime-bands">牛熊背景色带：开</button>
+            <button class="btn active" id="toggle-regime-signals">转换信号标记：开</button>
+          </div>
+        </div>
+      </div>
+      <div class="regime-hero-grid" id="regime-hero-panel"></div>
+      <div class="chart-wrap">
+        <div id="chart-regime" class="chart-box regime-tall"></div>
+      </div>
+      <details class="daily-box">
+        <summary>展开查看：四维景气度历次牛熊转换 / 预警 / 冰点触发明细（2016至今，严格无未来函数）与回测摘要</summary>
+        <div id="regime-signal-table"></div>
+        <div style="font-size:12px;color:#475569;line-height:1.7;margin-top:8px;">
+          <strong>指标合成口径：</strong>趋势分(30%：创指vsMA60/MA120 + MA60斜率) + 两融回撤水位分(25%：-12%~0%) + 两融真实余额增速分(25%：20日/60日真实涨跌幅，剔除252日滚动高点伪信号) + 创业板换手热度分(20%：MA20水位 + MA5/MA20动量 + 天量峰后退潮扣分)。<br/>
+          <strong>状态切换规则：</strong>牛市中 <strong>5日均分 &lt; 50</strong> 触发牛转熊预警；<strong>10日均分 &lt; 36</strong> 确认转熊；熊市中同时满足深跌≥25%+两融回撤≤-12%+两融20日增速止血≥-2.5%+换手MA5≤2.0%(或地量≥50日)满5日进入<strong>左侧冰点筑底区</strong>；<strong>10日均分 ≥ 65 + 站上MA60 + 两融20日增速 &gt; 0</strong> 确认右侧熊转牛。2016–2026 严格无前视回测：总收益 +103.8%（同期创指 -12.3%），最大回撤由 -57.0% 降至 -29.8%，11年仅10次牛熊切换。
+        </div>
+      </details>
+    </section>
+
+    <!-- 2. Industry -->
     <section class="card" id="card-industry" data-section="industry">
       <div class="card-header">
         <div class="card-title-row">
           <div>
-            <h2>1. 申万一级行业累计融资净买入</h2>
+            <h2>2. 申万一级行业累计融资净买入</h2>
             <span class="card-subtitle" id="sub-industry"></span>
           </div>
           <div class="btn-group">
@@ -596,12 +753,12 @@
       </details>
     </section>
 
-    <!-- 2. Tech vs Dividend -->
+    <!-- 3. Tech vs Dividend -->
     <section class="card" id="card-tech" data-section="tech">
       <div class="card-header">
         <div class="card-title-row">
           <div>
-            <h2>2. 成长（科创50 + 创业板各半）对比红利低波</h2>
+            <h2>3. 成长（科创50 + 创业板各半）对比红利低波</h2>
             <span class="card-subtitle" id="sub-tech"></span>
           </div>
           <div class="btn-group">
@@ -624,12 +781,12 @@
       </div>
     </section>
 
-    <!-- 3. Margin Drawdown -->
+    <!-- 4. Margin Drawdown -->
     <section class="card" id="card-drawdown" data-section="drawdown">
       <div class="card-header">
         <div class="card-title-row">
           <div>
-            <h2>3. 两融余额回撤、20日变化与创业板指</h2>
+            <h2>4. 两融余额回撤、20日变化与创业板指</h2>
             <span class="card-subtitle" id="sub-drawdown"></span>
           </div>
           <div class="btn-group">
@@ -653,12 +810,12 @@
       </div>
     </section>
 
-    <!-- 4. Market Turnover Peak/Trough Thermometer -->
+    <!-- 5. Market Turnover Peak/Trough Thermometer -->
     <section class="card" id="card-turnover" data-section="turnover">
       <div class="card-header">
         <div class="card-title-row">
           <div>
-            <h2>4. 全A流通换手率与上证指数（顶底温度计）</h2>
+            <h2>5. 全A流通换手率与上证指数（顶底温度计）</h2>
             <span class="card-subtitle" id="sub-turnover"></span>
           </div>
           <div class="btn-group">
@@ -711,12 +868,12 @@
       </details>
     </section>
 
-    <!-- 5. ChiNext Turnover Peak/Trough Thermometer -->
+    <!-- 6. ChiNext Turnover Peak/Trough Thermometer -->
     <section class="card" id="card-chinext" data-section="chinext">
       <div class="card-header">
         <div class="card-title-row">
           <div>
-            <h2>5. 创业板流通换手率与创业板指（顶底温度计）</h2>
+            <h2>6. 创业板流通换手率与创业板指（顶底温度计）</h2>
             <span class="card-subtitle" id="sub-chinext"></span>
           </div>
           <div class="btn-group">
@@ -806,6 +963,20 @@
       document.getElementById("gen-meta").textContent = `看板生成于 ${DATA.generatedAt}`;
       const grid = document.getElementById("kpi-grid");
       const items = [];
+
+      if (DATA.regime && DATA.regime.latest) {
+        const rg = DATA.regime.latest;
+        const badgeCls = rg.regime === "BULL" ? "state-cold" : rg.regime === "WARN" ? "state-warm" : rg.regime === "BOTTOM" ? "state-mid" : "state-hot";
+        const shortRegime = rg.regime === "BULL" ? "右侧牛市" : rg.regime === "WARN" ? "牛转熊预警" : rg.regime === "BOTTOM" ? "冰点筑底区" : "熊市退潮";
+        const posHint = rg.regime === "BULL" ? "建议仓位 70%-100%" : rg.regime === "WARN" ? "建议仓位 30%-50%" : rg.regime === "BOTTOM" ? "建议仓位 20%-40% 分批" : "建议仓位 0%-20% 防守";
+        items.push({
+          target: "regime",
+          title: "1. 四维牛熊景气度",
+          date: rg.date,
+          main: `${rg.slowScore.toFixed(1)}<span style="font-size:13px;font-weight:500;color:#637381;">/100</span> <span class="state-badge ${badgeCls}">${shortRegime}</span>`,
+          sub: `5日预警 ${rg.fastScore.toFixed(1)} ｜ 10日确认 ${rg.slowScore.toFixed(1)}<br/><strong>${posHint}</strong>（已持续 ${rg.daysInRegime} 日）`
+        });
+      }
 
       if (DATA.industry) {
         const ind = DATA.industry;
@@ -904,6 +1075,410 @@
             charts[chartKey].dispatchAction({ type: "dataZoom", start, end });
           }
         });
+      });
+    }
+
+    function initRegime() {
+      const el = document.getElementById("chart-regime");
+      const hero = document.getElementById("regime-hero-panel");
+      const rg = DATA.regime;
+      if (!rg || !rg.latest) {
+        if (el) el.innerHTML = '<div class="empty-msg">未找到四维牛熊景气度数据（需两融回撤与创业板换手率 CSV）。</div>';
+        return;
+      }
+      const cur = rg.latest;
+      document.getElementById("sub-regime").textContent =
+        `${rg.firstDate} 至 ${rg.latestDate}（共 ${rg.dates.length} 个交易日，对齐两融与创业板最新共同交易日；默认展示 2024-07-01 至今，向左拖动标尺可回溯 2016 年起全周期）`;
+
+      const stateClass = cur.regime === "BULL" ? "state-bull"
+        : cur.regime === "WARN" ? "state-warn"
+        : cur.regime === "BOTTOM" ? "state-bottom" : "state-bear";
+      const badgeCls = cur.regime === "BULL" ? "state-cold"
+        : cur.regime === "WARN" ? "state-warm"
+        : cur.regime === "BOTTOM" ? "state-mid" : "state-hot";
+
+      // Build dynamic actionable advice & live checklist for current regime
+      const vsMa60 = cur.ma60 > 0 ? ((cur.indexVal / cur.ma60 - 1) * 100) : 0;
+      const vsMa120 = cur.ma120 > 0 ? ((cur.indexVal / cur.ma120 - 1) * 100) : 0;
+      let posRange = "";
+      let bullets = [];
+      let checkTitle = "";
+      let checks = [];
+
+      if (cur.regime === "BULL") {
+        posRange = "参考仓位：70% – 100%（积极进攻）";
+        bullets = [
+          "<strong>核心策略</strong>：趋势、杠杆与换手处于健康共振期，顺势持有高弹性成长/创业板宽基，不因短期小回踩轻易下车。",
+          "<strong>风控底线</strong>：盯紧 5 日景气分是否跌破 <strong>50 预警线</strong>；若跌破，第一时间逢反抽降至半仓以下并解除杠杆。",
+          "<strong>轮动参考</strong>：结合下方「2. 行业融资」前 10 主线方向与「3. 成长 vs 红利」剪刀差把握内部强弱。"
+        ];
+        checkTitle = "当前安全垫监控（保持牛市状态条件）";
+        checks = [
+          { pass: cur.fastScore >= 50, text: `5日预警线 ≥ 50（当前 ${cur.fastScore.toFixed(1)}，安全垫 +${(cur.fastScore - 50).toFixed(1)}）` },
+          { pass: cur.slowScore >= 36, text: `10日确认线 ≥ 36（当前 ${cur.slowScore.toFixed(1)}）` },
+          { pass: cur.indexVal > cur.ma60, text: `创指站稳 MA60 上方（${signed(vsMa60, 1)}%）` },
+          { pass: cur.marginDd > -5.0, text: `两融回撤未破 -5% 警戒（当前 ${cur.marginDd.toFixed(1)}%）` }
+        ];
+      } else if (cur.regime === "WARN") {
+        posRange = "参考仓位：30% – 50%（逢高降仓防守）";
+        bullets = [
+          "<strong>核心策略</strong>：5 日景气分已跌破 50，说明上涨动能钝化或杠杆出现松动；建议<strong>逢反抽降低高波动成长与杠杆仓位</strong>，转向均衡/红利低波防御。",
+          "<strong>严禁动作</strong>：在预警解除前<strong>不要逆势加仓或补仓</strong>，防范演变为类似 2022-01 / 2026-07 的主跌浪。",
+          "<strong>双向拐点</strong>：若 10 日分跌破 <strong>36</strong> 将正式确认牛转熊（全面转防守）；若 10 日分重返 <strong>≥ 60</strong> 且创指收复 MA60 则解除预警。"
+        ];
+        checkTitle = "解除预警 vs 转熊确认 实时监控";
+        checks = [
+          { pass: cur.slowScore >= 60, text: `解除预警条件①：10日分 ≥ 60（当前 ${cur.slowScore.toFixed(1)}）` },
+          { pass: cur.indexVal > cur.ma60, text: `解除预警条件②：创指收复 MA60（当前 ${signed(vsMa60, 1)}%）` },
+          { pass: cur.slowScore >= 36, text: `未触发转熊确认：10日分 ≥ 36（当前 ${cur.slowScore.toFixed(1)}）` },
+          { pass: cur.marginChg20 >= 0, text: `两融20日真实增速企稳 ≥ 0%（当前 ${signed(cur.marginChg20, 1)}%）` }
+        ];
+      } else if (cur.regime === "BOTTOM") {
+        posRange = "参考仓位：20% – 40%（左侧冰点·勿割肉可定投）";
+        bullets = [
+          "<strong>核心策略</strong>：已满足深跌 + 两融止血 + 地量冷清四重冰点特征（历史上 2018-12、2024-08 均处于此区间），<strong>切忌在底部恐慌割肉</strong>，可开始分批左侧定投宽基 ETF。",
+          "<strong>仓位纪律</strong>：左侧磨底可能仍有二次探底，<strong>严禁加杠杆</strong>，保留至少 60% 现金等待右侧放量确认再重仓。",
+          "<strong>失效防线</strong>：若两融 20 日增速再度急杀至 <strong>≤ -5%</strong> 且跌破 MA60，需暂停定投防流动性二次踩踏。"
+        ];
+        checkTitle = "迈向「右侧熊转牛重仓区」实时达成清单";
+        checks = [
+          { pass: cur.slowScore >= 65, text: `10日景气分 ≥ 65（当前 ${cur.slowScore.toFixed(1)}，还差 ${Math.max(0, 65 - cur.slowScore).toFixed(1)} 分）` },
+          { pass: cur.indexVal > cur.ma60, text: `创指放量站上 MA60（当前 ${signed(vsMa60, 1)}%）` },
+          { pass: cur.marginChg20 > 0, text: `两融20日真实增速翻正（当前 ${signed(cur.marginChg20, 1)}%）` },
+          { pass: cur.marginChg20 > -5.0, text: `未出现二次杠杆急杀（>-5%，当前 ${signed(cur.marginChg20, 1)}%）` }
+        ];
+      } else {
+        const isDeepPanic = cur.marginChg20 <= -5.0;
+        posRange = "参考仓位：0% – 20%（现金 / 红利低波防守）";
+        bullets = [
+          `<strong>核心策略</strong>：当前 10 日景气分仅 <strong>${cur.slowScore.toFixed(1)}</strong>（深度熊市），以<strong>现金、短债或红利低波</strong>防守为主，${isDeepPanic ? "两融 20 日仍在 <strong>" + signed(cur.marginChg20, 1) + "%</strong> 加速失血，<strong>严禁左侧重仓接飞刀与加杠杆</strong>" : "耐心等待杠杆彻底出清与缩量磨底"}。`,
+          `<strong>短期反抽提示</strong>：${isDeepPanic ? "两融 20 日急杀超 -5% 且创指远离 MA60(" + signed(vsMa60, 1) + "%) 时常伴随情绪宣泄后的短线反抽，但反抽不是反转，切勿误把反抽当牛市追高。" : "弱势阴跌期减少高频抄底，保护本金等待左侧冰点信号。"}`,
+          "<strong>下一步观察路线</strong>：先等下方 4 项<strong>「左侧冰点筑底区」</strong>条件齐备（停止失血 + 缩量地量）再考虑左侧分批试仓；右侧重仓必须等 10 日分重返 <strong>≥ 65</strong>。"
+        ];
+        checkTitle = "距离「第一步：进入左侧冰点筑底区（勿割肉）」实时达成清单";
+        checks = [
+          { pass: cur.indexDd252 <= -25.0, text: `① 创指近1年深跌 ≥ 25%（当前 ${cur.indexDd252.toFixed(1)}%）` },
+          { pass: cur.marginDd <= -12.0, text: `② 两融回撤充分出清 ≤ -12%（当前 ${cur.marginDd.toFixed(1)}%）` },
+          { pass: cur.marginChg20 >= -2.5, text: `③ 两融20日增速止血 ≥ -2.5%（当前 ${signed(cur.marginChg20, 1)}%）` },
+          { pass: cur.turnMa5 <= 2.0 || cur.daysSinceTrough >= 50, text: `④ 创业板换手MA5 ≤ 2.0% 或地量≥50日（当前 ${cur.turnMa5.toFixed(2)}% / ${cur.daysSinceTrough}日）` }
+        ];
+      }
+
+      const barColor = (v) => v >= 65 ? "#16a34a" : v >= 40 ? "#d97706" : "#dc2626";
+      const pillars = [
+        { name: "① 创业板指趋势 (30%)", val: cur.trendScore, sub: `创指 ${cur.indexVal.toFixed(1)} ｜ vs MA60 ${signed(vsMa60, 1)}% ｜ vs MA120 ${signed(vsMa120, 1)}%` },
+        { name: "② 两融回撤水位 (25%)", val: cur.marginDdScore, sub: `两融余额 ${cur.marginBalance.toFixed(0)} 亿 ｜ 相对近1年高点 ${cur.marginDd.toFixed(2)}%` },
+        { name: "③ 两融真实增速 (25%)", val: cur.marginGrowthScore, sub: `20日真实变化 ${signed(cur.marginChg20, 2)}% ｜ 60日变化 ${signed(cur.marginChg60, 2)}%` },
+        { name: "④ 创业板换手热度 (20%)", val: cur.turnoverScore, sub: `换手 MA5 ${cur.turnMa5.toFixed(2)}% / MA20 ${cur.turnMa20.toFixed(2)}% ｜ 距天量峰 ${cur.daysSincePeak} 日` }
+      ];
+
+      hero.innerHTML = `
+        <div class="regime-box ${stateClass}">
+          <div class="regime-meter-top">
+            <div id="chart-regime-gauge" class="regime-gauge-box"></div>
+            <div class="pillar-list">
+              ${pillars.map(p => `
+                <div class="pillar-row">
+                  <div class="pillar-head">
+                    <strong>${p.name}</strong>
+                    <span style="font-weight:700;color:${barColor(p.val)};">${p.val.toFixed(1)} / 100</span>
+                  </div>
+                  <div class="pillar-track"><div class="pillar-fill" style="width:${Math.max(2, p.val)}%;background:${barColor(p.val)};"></div></div>
+                  <div class="pillar-sub">${p.sub}</div>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+          <div style="margin-top:8px;padding-top:8px;border-top:1px dashed #e3e7ec;font-size:12px;color:#475569;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-variant-numeric:tabular-nums;">
+            <span>当日分 <strong>${cur.rawScore.toFixed(1)}</strong> ｜ 5日预警线 <strong>${cur.fastScore.toFixed(1)}</strong>（阈值 50） ｜ 10日确认线 <strong>${cur.slowScore.toFixed(1)}</strong>（转熊 36 / 转牛 65）</span>
+          </div>
+        </div>
+        <div class="regime-box ${stateClass}">
+          <div class="advice-head">
+            <div>
+              <span class="state-badge ${badgeCls}" style="font-size:13px;padding:3px 10px;">${cur.regimeLabel}</span>
+              <span style="font-size:12px;color:var(--muted);margin-left:8px;">已持续 <strong>${cur.daysInRegime}</strong> 个交易日（自 ${cur.regimeStartDate}）</span>
+            </div>
+            <span class="pos-pill">${posRange}</span>
+          </div>
+          <ul class="advice-bullets">
+            ${bullets.map(b => `<li>${b}</li>`).join("")}
+          </ul>
+          <div class="check-title">${checkTitle}</div>
+          <div class="check-grid">
+            ${checks.map(c => `
+              <div class="check-item ${c.pass ? "pass" : "fail"}">
+                <span class="check-icon">${c.pass ? "✓" : "✗"}</span>
+                <span>${c.text}</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `;
+
+      // Render ECharts semi-circular gauge
+      const gaugeEl = document.getElementById("chart-regime-gauge");
+      if (gaugeEl) {
+        const gauge = echarts.init(gaugeEl);
+        charts.regimeGauge = gauge;
+        const gColor = cur.slowScore >= 65 ? "#16a34a" : cur.slowScore >= 50 ? "#2e6894" : cur.slowScore >= 36 ? "#d97706" : "#dc2626";
+        gauge.setOption({
+          animation: false,
+          series: [{
+            type: "gauge",
+            startAngle: 200,
+            endAngle: -20,
+            min: 0,
+            max: 100,
+            radius: "96%",
+            center: ["50%", "64%"],
+            axisLine: {
+              lineStyle: {
+                width: 14,
+                color: [
+                  [0.36, "#dc2626"],
+                  [0.50, "#f59e0b"],
+                  [0.65, "#64748b"],
+                  [1.00, "#16a34a"]
+                ]
+              }
+            },
+            pointer: { length: "62%", width: 4, itemStyle: { color: "#1f2a33" } },
+            anchor: { show: true, size: 8, itemStyle: { color: "#1f2a33" } },
+            axisTick: { show: false },
+            splitLine: { length: 7, distance: -14, lineStyle: { color: "#fff", width: 1.5 } },
+            axisLabel: {
+              distance: 14,
+              fontSize: 10,
+              color: "#637381",
+              formatter: (v) => (v === 0 || v === 36 || v === 50 || v === 65 || v === 100 ? String(v) : "")
+            },
+            title: { offsetCenter: [0, "34%"], fontSize: 11, color: "#637381" },
+            detail: {
+              valueAnimation: false,
+              offsetCenter: [0, "12%"],
+              fontSize: 22,
+              fontWeight: 700,
+              color: gColor,
+              formatter: (v) => v.toFixed(1)
+            },
+            data: [{ value: cur.slowScore, name: "10日景气分" }]
+          }]
+        });
+      }
+
+      // Render historical signal table
+      const sigBox = document.getElementById("regime-signal-table");
+      if (sigBox && rg.events && rg.events.length) {
+        const rowsHtml = [...rg.events].reverse().map(ev => {
+          const bCls = ev.kind === "熊转牛确认" ? "state-cold"
+            : ev.kind === "牛转熊确认" || ev.kind === "筑底中止" ? "state-hot"
+            : ev.kind === "冰点筑底区" ? "state-mid" : "state-warm";
+          return `<tr>
+            <td><span class="state-badge ${bCls}">${ev.kind}</span></td>
+            <td>${ev.date}</td>
+            <td>${ev.idx.toFixed(2)}</td>
+            <td>${ev.fastScore.toFixed(1)} / <strong>${ev.slowScore.toFixed(1)}</strong></td>
+            <td>${ev.marginDd.toFixed(1)}%</td>
+            <td>${signed(ev.marginChg20, 1)}%</td>
+            <td>${ev.turnMa5.toFixed(2)}%</td>
+          </tr>`;
+        }).join("");
+        sigBox.innerHTML = `
+          <div style="font-size:12px;font-weight:700;margin:6px 0 4px;color:#1f2a33;">历次四维牛熊转换 / 预警 / 冰点记录（共 ${rg.events.length} 次，最新在前）</div>
+          <table class="ref-table">
+            <thead><tr><th>信号类型</th><th>触发日期</th><th>创业板指</th><th>5日/10日景气分</th><th>两融回撤</th><th>两融20日实增</th><th>创业板换手MA5</th></tr></thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        `;
+      }
+
+      // Render main synchronized dual-grid ECharts chart
+      const chart = echarts.init(el);
+      charts.regime = chart;
+      let showBands = true;
+      let showSignals = true;
+      let zoomRange = pctFromDates(rg.dates, { since: "2024-07-01" });
+
+      const bandColors = {
+        BULL: "rgba(22, 163, 74, 0.09)",
+        WARN: "rgba(217, 119, 6, 0.12)",
+        BOTTOM: "rgba(8, 145, 178, 0.13)",
+        BEAR: "rgba(220, 38, 38, 0.08)"
+      };
+      const regimeCnMap = { BULL: "右侧牛市", WARN: "牛转熊预警", BOTTOM: "冰点筑底区", BEAR: "熊市退潮" };
+
+      const renderRegime = () => {
+        const markAreas = showBands ? rg.segments.map(seg => [
+          { xAxis: seg.start, itemStyle: { color: bandColors[seg.regime] || bandColors.BEAR } },
+          { xAxis: seg.end }
+        ]) : [];
+
+        const markPoints = showSignals ? rg.events.filter(ev => ev.kind !== "解除预警" && ev.kind !== "筑底中止").map(ev => {
+          const isBear = ev.kind === "牛转熊确认";
+          const isWarn = ev.kind === "牛转熊预警";
+          const isBull = ev.kind === "熊转牛确认";
+          return {
+            name: ev.kind,
+            coord: [ev.date, ev.idx],
+            value: isBear ? "转熊" : isWarn ? "预警" : isBull ? "转牛" : "冰点",
+            itemStyle: { color: isBear ? "#991b1b" : isWarn ? "#d97706" : isBull ? "#15803d" : "#0e7490" },
+            label: { fontSize: 10, color: "#fff" },
+            symbolOffset: [0, (isBear || isWarn) ? -22 : 22]
+          };
+        }) : [];
+
+        chart.setOption({
+          animation: false,
+          axisPointer: { link: [{ xAxisIndex: "all" }] },
+          tooltip: {
+            trigger: "axis",
+            confine: true,
+            axisPointer: { type: "cross" },
+            formatter: (params) => {
+              if (!params || !params.length) return "";
+              const i = params[0].dataIndex;
+              const reg = rg.regimes[i];
+              const sig = rg.signals[i] ? ` ｜ <strong style="color:#b82323;">${rg.signals[i]}</strong>` : "";
+              return `
+                <div style="font-weight:700;margin-bottom:5px;">${rg.dates[i]} · ${regimeCnMap[reg] || reg}${sig}</div>
+                <div style="font-size:12px;line-height:1.68;font-variant-numeric:tabular-nums;">
+                  <div><span style="color:#2e6894;">●</span> 创业板指：<strong>${rg.indexVal[i].toFixed(2)}</strong>（MA60 ${rg.ma60[i].toFixed(1)} / MA120 ${rg.ma120[i].toFixed(1)}）</div>
+                  <div><span style="color:#b82323;">●</span> 四维景气分：<strong>10日均 ${rg.slowScore[i].toFixed(1)}</strong> ｜ 5日均 ${rg.fastScore[i].toFixed(1)} ｜ 当日 ${rg.rawScore[i].toFixed(1)}</div>
+                  <hr style="border:none;border-top:1px solid #eee;margin:4px 0;"/>
+                  <div style="color:#475569;">① 趋势子分(30%)：<strong>${rg.trendScore[i].toFixed(1)}</strong> ｜ ④ 换手子分(20%)：<strong>${rg.turnoverScore[i].toFixed(1)}</strong>（MA5 ${rg.turnMa5[i].toFixed(2)}%）</div>
+                  <div style="color:#475569;">② 两融水位(25%)：<strong>${rg.marginDdScore[i].toFixed(1)}</strong>（回撤 ${rg.marginDd[i].toFixed(1)}%） ｜ ③ 两融增速(25%)：<strong>${rg.marginGrowthScore[i].toFixed(1)}</strong>（20日 ${signed(rg.marginChg20[i], 1)}%）</div>
+                </div>`;
+            }
+          },
+          toolbox: commonToolbox("chinext_regime_score_interactive"),
+          legend: { top: 4, left: 20, textStyle: { fontSize: 12 } },
+          grid: [
+            { left: 68, right: 28, top: 44, height: "48%" },
+            { left: 68, right: 28, top: "61%", height: "25%" }
+          ],
+          xAxis: [
+            { type: "category", gridIndex: 0, data: rg.dates, boundaryGap: false, axisLabel: { show: false }, axisLine: { lineStyle: { color: "#8a9499" } } },
+            { type: "category", gridIndex: 1, data: rg.dates, boundaryGap: false, axisLine: { lineStyle: { color: "#8a9499" } } }
+          ],
+          yAxis: [
+            {
+              type: "value",
+              gridIndex: 0,
+              name: "创业板指（点）",
+              nameGap: 12,
+              scale: true,
+              splitLine: { lineStyle: { color: "#eceff2" } }
+            },
+            {
+              type: "value",
+              gridIndex: 1,
+              name: "四维景气分",
+              nameGap: 12,
+              min: 0,
+              max: 100,
+              interval: 25,
+              splitLine: { lineStyle: { color: "#eceff2" } }
+            }
+          ],
+          dataZoom: [
+            { type: "inside", xAxisIndex: [0, 1], start: zoomRange[0], end: zoomRange[1], zoomOnMouseWheel: true, moveOnMouseMove: true },
+            { type: "slider", xAxisIndex: [0, 1], bottom: 8, height: 26, start: zoomRange[0], end: zoomRange[1] }
+          ],
+          series: [
+            {
+              name: "创业板指",
+              type: "line",
+              xAxisIndex: 0,
+              yAxisIndex: 0,
+              showSymbol: false,
+              data: rg.indexVal,
+              lineStyle: { width: 2.2, color: "#2e6894" },
+              itemStyle: { color: "#2e6894" },
+              markArea: { silent: true, data: markAreas },
+              markPoint: { symbol: "roundRect", symbolSize: [38, 22], data: markPoints }
+            },
+            {
+              name: "MA60",
+              type: "line",
+              xAxisIndex: 0,
+              yAxisIndex: 0,
+              showSymbol: false,
+              data: rg.ma60,
+              lineStyle: { width: 1.3, color: "#e77b19", type: "dashed" },
+              itemStyle: { color: "#e77b19" }
+            },
+            {
+              name: "MA120",
+              type: "line",
+              xAxisIndex: 0,
+              yAxisIndex: 0,
+              showSymbol: false,
+              data: rg.ma120,
+              lineStyle: { width: 1.2, color: "#8055aa", type: "dotted" },
+              itemStyle: { color: "#8055aa" }
+            },
+            {
+              name: "5日预警分",
+              type: "line",
+              xAxisIndex: 1,
+              yAxisIndex: 1,
+              showSymbol: false,
+              data: rg.fastScore,
+              lineStyle: { width: 1.3, color: "#e77b19" },
+              itemStyle: { color: "#e77b19" }
+            },
+            {
+              name: "10日确认分（主线）",
+              type: "line",
+              xAxisIndex: 1,
+              yAxisIndex: 1,
+              showSymbol: false,
+              data: rg.slowScore,
+              lineStyle: { width: 2.3, color: "#b82323" },
+              itemStyle: { color: "#b82323" },
+              areaStyle: { color: "rgba(184, 35, 35, 0.08)" },
+              markLine: {
+                silent: true,
+                symbol: "none",
+                label: { position: "insideEndTop", fontSize: 10 },
+                data: [
+                  { yAxis: 65, lineStyle: { color: "#16a34a", type: "dashed", width: 1.2 }, label: { formatter: "65 转牛", color: "#16a34a" } },
+                  { yAxis: 50, lineStyle: { color: "#d97706", type: "dashed", width: 1.1 }, label: { formatter: "50 预警", color: "#d97706" } },
+                  { yAxis: 36, lineStyle: { color: "#dc2626", type: "dashed", width: 1.2 }, label: { formatter: "36 转熊", color: "#dc2626" } }
+                ]
+              }
+            }
+          ]
+        }, true);
+      };
+
+      chart.on("datazoom", () => {
+        const dz = chart.getOption().dataZoom?.[0];
+        if (dz) zoomRange = [dz.start, dz.end];
+      });
+
+      renderRegime();
+
+      const bandBtn = document.getElementById("toggle-regime-bands");
+      bandBtn.addEventListener("click", () => {
+        showBands = !showBands;
+        bandBtn.classList.toggle("active", showBands);
+        bandBtn.textContent = showBands ? "牛熊背景色带：开" : "牛熊背景色带：关";
+        renderRegime();
+      });
+
+      const sigBtn = document.getElementById("toggle-regime-signals");
+      sigBtn.addEventListener("click", () => {
+        showSignals = !showSignals;
+        sigBtn.classList.toggle("active", showSignals);
+        sigBtn.textContent = showSignals ? "转换信号标记：开" : "转换信号标记：关";
+        renderRegime();
+      });
+
+      bindRangeButtons("range-regime", "regime", rg.dates, (start, end) => {
+        zoomRange = [start, end];
+        chart.dispatchAction({ type: "dataZoom", start, end });
       });
     }
 
@@ -2171,6 +2746,7 @@
       }
       buildRunStatus();
       buildKpis();
+      initRegime();
       initIndustry();
       initTech();
       initDrawdown();

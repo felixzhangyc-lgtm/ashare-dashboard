@@ -28,6 +28,7 @@ try
         "drawdown" or "两融回撤图" => "drawdown",
         "turnover" or "换手率顶底图" or "换手率图" or "顶底温度计" => "turnover",
         "chinext" or "创业板换手率图" or "创业板温度计" or "创业板顶底图" => "chinext",
+        "regime" or "牛熊景气度" or "景气度仪表盘" or "四维景气度" => "regime",
         "all" or "三张图" => "all",
         "everything" or "全部图" or "所有图" => "everything",
         "ci" => "ci",
@@ -87,6 +88,8 @@ try
             await TurnoverReport.RunAsync(client, maxDate, Path.Combine(output, "market-turnover-cycle"), fromCsv);
         if (command is "chinext" or "everything")
             await ChinextTurnoverReport.RunAsync(client, maxDate, Path.Combine(output, "chinext-turnover-cycle"), fromCsv);
+        if (command is "regime" or "everything")
+            RegimeScoreReport.Run(output);
     }
     if (command == "dashboard" || !skipUpdate)
         DashboardReport.Run(output);

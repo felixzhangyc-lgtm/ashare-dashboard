@@ -29,6 +29,7 @@ internal static class DashboardReport
         var payload = new Dictionary<string, object?>
         {
             ["generatedAt"] = nowShanghai.ToString("yyyy-MM-dd HH:mm:ss"),
+            ["regime"] = LoadRegimeScore(outputDir),
             ["industry"] = LoadIndustry(outputDir),
             ["tech"] = LoadTech(outputDir),
             ["drawdown"] = LoadDrawdown(outputDir),
@@ -425,6 +426,125 @@ internal static class DashboardReport
             peakInfo,
             troughInfo,
             latestState = table.Rows[last][cState]
+        };
+    }
+
+    private static object? LoadRegimeScore(string outputDir)
+    {
+        RegimeScoreReport.Row[] rows;
+        try
+        {
+            rows = RegimeScoreReport.ComputeFromOutputs(outputDir);
+        }
+        catch
+        {
+            return null;
+        }
+        if (rows.Length < 20)
+            return null;
+
+        int n = rows.Length;
+        int last = n - 1;
+        string[] dates = rows.Select(r => Csv.Date(r.Date)).ToArray();
+
+        // Build contiguous regime segments for ECharts markArea background bands
+        var segments = new List<object>();
+        int segStart = 0;
+        for (int i = 1; i <= n; i++)
+        {
+            if (i == n || rows[i].Regime != rows[segStart].Regime)
+            {
+                segments.Add(new
+                {
+                    regime = rows[segStart].Regime,
+                    start = dates[segStart],
+                    end = dates[i - 1]
+                });
+                segStart = i;
+            }
+        }
+
+        // Historical causal signal events
+        var events = new List<object>();
+        for (int i = 0; i < n; i++)
+        {
+            if (string.IsNullOrEmpty(rows[i].Signal))
+                continue;
+            events.Add(new
+            {
+                index = i,
+                date = dates[i],
+                kind = rows[i].Signal,
+                idx = R(rows[i].Index, 2),
+                fastScore = R(rows[i].FastScore, 1),
+                slowScore = R(rows[i].SlowScore, 1),
+                marginDd = R(rows[i].MarginDd, 2),
+                marginChg20 = R(rows[i].MarginChg20, 2),
+                turnMa5 = R(rows[i].TurnMa5, 2)
+            });
+        }
+
+        // Count consecutive days in current regime
+        int daysInRegime = 1;
+        for (int i = last - 1; i >= 0 && rows[i].Regime == rows[last].Regime; i--)
+            daysInRegime++;
+        string regimeStartDate = dates[last - daysInRegime + 1];
+
+        var cur = rows[last];
+        return new
+        {
+            dates,
+            firstDate = dates[0],
+            latestDate = dates[last],
+            indexVal = rows.Select(r => R(r.Index, 2)).ToArray(),
+            ma60 = rows.Select(r => R(r.Ma60, 2)).ToArray(),
+            ma120 = rows.Select(r => R(r.Ma120, 2)).ToArray(),
+            indexDd252 = rows.Select(r => R(r.IndexDd252, 1)).ToArray(),
+            marginDd = rows.Select(r => R(r.MarginDd, 2)).ToArray(),
+            marginChg20 = rows.Select(r => R(r.MarginChg20, 2)).ToArray(),
+            marginChg60 = rows.Select(r => R(r.MarginChg60, 2)).ToArray(),
+            turnMa5 = rows.Select(r => R(r.TurnMa5, 2)).ToArray(),
+            turnMa20 = rows.Select(r => R(r.TurnMa20, 2)).ToArray(),
+            daysSincePeak = rows.Select(r => r.DaysSincePeak).ToArray(),
+            daysSinceTrough = rows.Select(r => r.DaysSinceTrough).ToArray(),
+            trendScore = rows.Select(r => R(r.TrendScore, 1)).ToArray(),
+            marginDdScore = rows.Select(r => R(r.MarginDdScore, 1)).ToArray(),
+            marginGrowthScore = rows.Select(r => R(r.MarginGrowthScore, 1)).ToArray(),
+            turnoverScore = rows.Select(r => R(r.TurnoverScore, 1)).ToArray(),
+            rawScore = rows.Select(r => R(r.RawScore, 1)).ToArray(),
+            fastScore = rows.Select(r => R(r.FastScore, 1)).ToArray(),
+            slowScore = rows.Select(r => R(r.SlowScore, 1)).ToArray(),
+            regimes = rows.Select(r => r.Regime).ToArray(),
+            signals = rows.Select(r => r.Signal).ToArray(),
+            segments,
+            events,
+            latest = new
+            {
+                date = dates[last],
+                regime = cur.Regime,
+                regimeLabel = RegimeScoreReport.RegimeLabel(cur.Regime),
+                daysInRegime,
+                regimeStartDate,
+                rawScore = R(cur.RawScore, 1),
+                fastScore = R(cur.FastScore, 1),
+                slowScore = R(cur.SlowScore, 1),
+                trendScore = R(cur.TrendScore, 1),
+                marginDdScore = R(cur.MarginDdScore, 1),
+                marginGrowthScore = R(cur.MarginGrowthScore, 1),
+                turnoverScore = R(cur.TurnoverScore, 1),
+                indexVal = R(cur.Index, 2),
+                ma60 = R(cur.Ma60, 2),
+                ma120 = R(cur.Ma120, 2),
+                indexDd252 = R(cur.IndexDd252, 1),
+                marginBalance = R(cur.MarginBalance, 2),
+                marginDd = R(cur.MarginDd, 2),
+                marginChg20 = R(cur.MarginChg20, 2),
+                marginChg60 = R(cur.MarginChg60, 2),
+                turnMa5 = R(cur.TurnMa5, 2),
+                turnMa20 = R(cur.TurnMa20, 2),
+                daysSincePeak = cur.DaysSincePeak,
+                daysSinceTrough = cur.DaysSinceTrough
+            }
         };
     }
 }

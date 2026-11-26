@@ -977,12 +977,14 @@
         const badgeCls = rg.regime === "BULL" ? "risk-badge-bull" : rg.regime === "WARN" ? "risk-badge-warn" : rg.regime === "BOTTOM" ? "risk-badge-bottom" : "risk-badge-bear";
         const shortRegime = rg.regime === "BULL" ? "右侧牛市" : rg.regime === "WARN" ? "牛转熊预警" : rg.regime === "BOTTOM" ? "冰点筑底区" : "熊市退潮";
         const posHint = rg.regime === "BULL" ? "建议仓位 70%-100%" : rg.regime === "WARN" ? "建议仓位 30%-50%" : rg.regime === "BOTTOM" ? "建议仓位 20%-40% 分批" : "建议仓位 0%-20% 防守";
+        const dateTag = rg.isProvisional ? `${rg.date} 快报` : rg.date;
+        const provNote = rg.isProvisional ? ` · 两融暂沿用 ${rg.marginDate}` : "";
         items.push({
           target: "regime",
           title: "1. 四维牛熊景气度",
-          date: rg.date,
+          date: dateTag,
           main: `${rg.slowScore.toFixed(1)}<span style="font-size:13px;font-weight:500;color:#637381;">/100</span> <span class="state-badge ${badgeCls}">${shortRegime}</span>`,
-          sub: `5日预警 ${rg.fastScore.toFixed(1)} ｜ 10日确认 ${rg.slowScore.toFixed(1)}<br/><strong>${posHint}</strong>（已持续 ${rg.daysInRegime} 日）`
+          sub: `5日预警 ${rg.fastScore.toFixed(1)} ｜ 10日确认 ${rg.slowScore.toFixed(1)}${provNote}<br/><strong>${posHint}</strong>（已持续 ${rg.daysInRegime} 日）`
         });
       }
 
@@ -1081,8 +1083,11 @@
         return;
       }
       const cur = rg.latest;
+      const provSub = cur.isProvisional
+        ? `【盘后快报：趋势与换手为 ${cur.date} 收盘实测，两融暂沿用 ${cur.marginDate}，次日早披露后自动校准】`
+        : "四维已全部对齐正式披露数据";
       document.getElementById("sub-regime").textContent =
-        `${rg.firstDate} 至 ${rg.latestDate}（共 ${rg.dates.length} 个交易日，对齐两融与创业板最新共同交易日；默认展示 2024-07-01 至今，向左拖动标尺可回溯 2016 年起全周期）`;
+        `${rg.firstDate} 至 ${rg.latestDate}（共 ${rg.dates.length} 个交易日，${provSub}；默认展示 2024-07-01 至今，向左拖动标尺可回溯 2016 年起全周期）`;
 
       const riskClass = cur.regime === "BULL" ? "risk-bull"
         : cur.regime === "WARN" ? "risk-warn"
@@ -1222,6 +1227,7 @@
           <div class="advice-head">
             <div>
               <span class="state-badge ${badgeCls}" style="font-size:13px;padding:3px 10px;">${cur.regimeLabel}</span>
+              ${cur.isProvisional ? `<span class="state-badge state-warm" style="margin-left:6px;">盘后快报 · 两融暂沿用 ${cur.marginDate}</span>` : ""}
               <span style="font-size:12px;color:var(--muted);margin-left:8px;">已持续 <strong>${cur.daysInRegime}</strong> 个交易日（自 ${cur.regimeStartDate}）</span>
             </div>
             <span class="pos-pill ${badgeCls}">${posRange}</span>
@@ -1382,8 +1388,9 @@
               const i = params[0].dataIndex;
               const reg = rg.regimes[i];
               const sig = rg.signals[i] ? ` ｜ <strong style="color:#b82323;">${rg.signals[i]}</strong>` : "";
+              const provTag = rg.provisional?.[i] ? ` <span style="color:#b66c00;font-weight:600;">(盘后快报·两融沿用${rg.latest.marginDate})</span>` : "";
               return `
-                <div style="font-weight:700;margin-bottom:5px;">${rg.dates[i]} · ${regimeCnMap[reg] || reg}${sig}</div>
+                <div style="font-weight:700;margin-bottom:5px;">${rg.dates[i]} · ${regimeCnMap[reg] || reg}${sig}${provTag}</div>
                 <div style="font-size:12px;line-height:1.68;font-variant-numeric:tabular-nums;">
                   <div><span style="color:#2e6894;">●</span> 创业板指：<strong>${rg.indexVal[i].toFixed(2)}</strong>（MA60 ${rg.ma60[i].toFixed(1)} / MA120 ${rg.ma120[i].toFixed(1)}）</div>
                   <div><span style="color:#b82323;">●</span> 四维景气分：<strong>10日均 ${rg.slowScore[i].toFixed(1)}</strong> ｜ 5日均 ${rg.fastScore[i].toFixed(1)} ｜ 当日 ${rg.rawScore[i].toFixed(1)}</div>

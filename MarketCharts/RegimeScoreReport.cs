@@ -23,7 +23,7 @@ internal static class RegimeScoreReport
         "两融余额_亿元", "两融回撤_百分比", "两融20日真实增速_百分比", "两融60日真实增速_百分比",
         "创业板换手MA5_百分比", "创业板换手MA20_百分比", "距天量峰天数", "距地量谷天数",
         "趋势子分", "两融水位子分", "两融增速子分", "换手热度子分",
-        "综合景气分", "景气分5日均", "景气分10日均", "牛熊状态", "转换信号"
+        "综合景气分", "景气分5日均", "景气分10日均", "牛熊状态", "转换信号", "数据口径"
     ];
 
     public sealed record Row(
@@ -48,7 +48,9 @@ internal static class RegimeScoreReport
         double FastScore,
         double SlowScore,
         string Regime,
-        string Signal);
+        string Signal,
+        bool IsProvisional,
+        DateOnly MarginDate);
 
     public sealed record SignalMarker(int Index, string Kind, string Label);
 
@@ -76,7 +78,8 @@ internal static class RegimeScoreReport
 
         var latest = data[^1];
         string regimeCn = RegimeLabel(latest.Regime);
-        string banner = $"综合景气分 {latest.RawScore:F1}（5日 {latest.FastScore:F1} / 10日 {latest.SlowScore:F1}）  ｜  当前状态：{regimeCn}  ｜  " +
+        string flashTag = latest.IsProvisional ? $"【盘后快报 · 两融暂沿用 {Csv.Date(latest.MarginDate)}】  " : "";
+        string banner = $"{flashTag}综合景气分 {latest.RawScore:F1}（5日 {latest.FastScore:F1} / 10日 {latest.SlowScore:F1}）  ｜  当前状态：{regimeCn}  ｜  " +
                         $"四维子分：趋势 {latest.TrendScore:F0} / 两融水位 {latest.MarginDdScore:F0} / 两融增速 {latest.MarginGrowthScore:F0} / 换手热度 {latest.TurnoverScore:F0}";
 
         using var outputs = new OutputBatch(dir);
@@ -114,11 +117,13 @@ internal static class RegimeScoreReport
             r.FastScore.ToString("F1"),
             r.SlowScore.ToString("F1"),
             r.Regime,
-            r.Signal
+            r.Signal,
+            r.IsProvisional ? $"盘后快报(两融沿用{Csv.Date(r.MarginDate)})" : "正式"
         }));
         outputs.Commit();
 
-        Console.WriteLine($"四维牛熊景气度 {Csv.Date(latest.Date)}  当日分 {latest.RawScore:F1}  5日均 {latest.FastScore:F1}  10日均 {latest.SlowScore:F1}  状态：{regimeCn}  共 {data.Length} 个交易日");
+        string modeNote = latest.IsProvisional ? $" [盘后快报·两融暂沿用{Csv.Date(latest.MarginDate)}]" : "";
+        Console.WriteLine($"四维牛熊景气度 {Csv.Date(latest.Date)}{modeNote}  当日分 {latest.RawScore:F1}  5日均 {latest.FastScore:F1}  10日均 {latest.SlowScore:F1}  状态：{regimeCn}  共 {data.Length} 个交易日");
         Console.WriteLine($"四维子分：趋势(30%) {latest.TrendScore:F1} ｜ 两融水位(25%) {latest.MarginDdScore:F1} ｜ 两融真实增速(25%) {latest.MarginGrowthScore:F1} ｜ 换手热度(20%) {latest.TurnoverScore:F1}");
         Console.WriteLine($"操作建议：{BuildConsoleAdvice(latest)}");
     }
@@ -154,15 +159,28 @@ internal static class RegimeScoreReport
                 int.Parse(r[cyTrough]));
         }
 
-        var joined = new List<(DateOnly Date, double Idx, double Bal, double MarginDd, double Ma5, double Ma20, int Peak, int Trough)>();
+        var joined = new List<(DateOnly Date, double Idx, double Bal, double MarginDd, double Ma5, double Ma20, int Peak, int Trough, bool IsProvisional, DateOnly MarginDate)>();
         foreach (var r in ddTable.Rows)
         {
             var d = Csv.ParseDate(r[ddDate]);
             if (!cyMap.TryGetValue(d, out var cy))
                 continue;
-            joined.Add((d, cy.Idx, Csv.Number(r[ddBal]), Csv.Number(r[ddPct]), cy.Ma5, cy.Ma20, cy.Peak, cy.Trough));
+            joined.Add((d, cy.Idx, Csv.Number(r[ddBal]), Csv.Number(r[ddPct]), cy.Ma5, cy.Ma20, cy.Peak, cy.Trough, false, d));
         }
         joined.Sort((a, b) => a.Date.CompareTo(b.Date));
+
+        // T-day post-close flash preview: if ChiNext closed data is newer than T+1 margin disclosure,
+        // carry forward the latest disclosed margin figures with an explicit provisional flag until T+1 calibration.
+        if (joined.Count > 0)
+        {
+            var lastOfficial = joined[^1];
+            var newerCyDates = cyMap.Keys.Where(d => d > lastOfficial.Date).Order().Take(2).ToArray();
+            foreach (var d in newerCyDates)
+            {
+                var cy = cyMap[d];
+                joined.Add((d, cy.Idx, lastOfficial.Bal, lastOfficial.MarginDd, cy.Ma5, cy.Ma20, cy.Peak, cy.Trough, true, lastOfficial.Date));
+            }
+        }
 
         int n = joined.Count;
         var ma60 = new double[n];
@@ -195,10 +213,19 @@ internal static class RegimeScoreReport
                 hi252 = Math.Max(hi252, joined[j].Idx);
             idxDd252[i] = hi252 > 0 ? (joined[i].Idx / hi252 - 1.0) * 100.0 : 0.0;
 
-            double bal20 = joined[Math.Max(0, i - 20)].Bal;
-            double bal60 = joined[Math.Max(0, i - 60)].Bal;
-            mChg20[i] = bal20 > 0 ? (joined[i].Bal / bal20 - 1.0) * 100.0 : 0.0;
-            mChg60[i] = bal60 > 0 ? (joined[i].Bal / bal60 - 1.0) * 100.0 : 0.0;
+            if (joined[i].IsProvisional && i > 0)
+            {
+                // Keep T-1 disclosed margin velocity unchanged during T-day post-close flash preview.
+                mChg20[i] = mChg20[i - 1];
+                mChg60[i] = mChg60[i - 1];
+            }
+            else
+            {
+                double bal20 = joined[Math.Max(0, i - 20)].Bal;
+                double bal60 = joined[Math.Max(0, i - 60)].Bal;
+                mChg20[i] = bal20 > 0 ? (joined[i].Bal / bal20 - 1.0) * 100.0 : 0.0;
+                mChg60[i] = bal60 > 0 ? (joined[i].Bal / bal60 - 1.0) * 100.0 : 0.0;
+            }
 
             double ma60Prev20 = ma60[Math.Max(0, i - 20)];
             double ma60Slope20 = ma60Prev20 > 0 ? (ma60[i] / ma60Prev20 - 1.0) * 100.0 : 0.0;
@@ -336,7 +363,9 @@ internal static class RegimeScoreReport
                 fastScore[i],
                 slowScore[i],
                 cur,
-                sig);
+                sig,
+                joined[i].IsProvisional,
+                joined[i].MarginDate);
         }
 
         return rows;

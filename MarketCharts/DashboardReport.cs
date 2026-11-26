@@ -516,11 +516,14 @@ internal static class DashboardReport
             slowScore = rows.Select(r => R(r.SlowScore, 1)).ToArray(),
             regimes = rows.Select(r => r.Regime).ToArray(),
             signals = rows.Select(r => r.Signal).ToArray(),
+            provisional = rows.Select(r => r.IsProvisional).ToArray(),
             segments,
             events,
             latest = new
             {
                 date = dates[last],
+                isProvisional = cur.IsProvisional,
+                marginDate = Csv.Date(cur.MarginDate),
                 regime = cur.Regime,
                 regimeLabel = RegimeScoreReport.RegimeLabel(cur.Regime),
                 daysInRegime,

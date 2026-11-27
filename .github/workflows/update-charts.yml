@@ -8,7 +8,7 @@ on:
       - 'outputs/assets/**'
       - '.github/workflows/update-charts.yml'
   schedule:
-    # 主要准点档位（09:15 / 09:40 / 15:10 / 15:40 / 17:30）已交由 Cloudflare Workers Cron (cloudflare-cron/) 触发
+    # 主要准点档位（09:15 / 09:40 / 15:10 / 17:30）已交由 Cloudflare Workers Cron (cloudflare-cron/) 触发
     # 此处仅保留北京时间周一至周五 23:00（UTC 15:00）一档夜间兜底，防止外部 Token 过期或异常时断更
     - cron: '0 15 * * 1-5'
   workflow_dispatch:

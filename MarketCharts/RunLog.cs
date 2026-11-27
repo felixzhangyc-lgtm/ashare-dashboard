@@ -88,10 +88,11 @@ internal static class RunLog
         string overallStatus = failCount == 0 ? "ok" : okCount == 0 ? "failed" : "partial";
 
         string eventName = Environment.GetEnvironmentVariable("GITHUB_EVENT_NAME") ?? "local";
+        string dispatchSource = (Environment.GetEnvironmentVariable("DISPATCH_SOURCE") ?? "").Trim();
         string trigger = eventName switch
         {
             "schedule" => "定时自动",
-            "workflow_dispatch" => "手动触发",
+            "workflow_dispatch" => dispatchSource is "cloudflare-cron" or "cron" ? "准点定时" : "手动触发",
             "push" => "代码推送",
             _ => "本机运行"
         };

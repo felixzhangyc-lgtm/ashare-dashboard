@@ -6,7 +6,8 @@ CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
 CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
 
 const string usage = """
-    dotnet run --project MarketCharts -- <industry|tech|drawdown|turnover|chinext|all|everything|dashboard> [--from-csv] [--output-dir PATH]
+    dotnet run --project MarketCharts -- <regime|industry|tech|drawdown|turnover|chinext|all|everything|dashboard> [--from-csv] [--output-dir PATH]
+    regime                  基于两融回撤与创业板换手率 CSV，生成四维牛熊景气度图表与 CSV
     industry --skip-update  读取现有行业 CSV，打印日报
     dashboard               用现有 CSV 重新生成 outputs/dashboard.html 交互看板
     --from-csv              用本地数据重绘 PNG 与交互看板

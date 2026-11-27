@@ -50,6 +50,7 @@ internal static class DrawdownReport
         var margin = (await marginTask).Select(row => (
             Date: Csv.ParseDate(row.GetProperty("DIM_DATE").GetString()!),
             Balance: MarketData.Number(row.GetProperty("RZRQYE")) / 100_000_000))
+            .Where(row => row.Date <= today)
             .DistinctBy(row => row.Date).OrderBy(row => row.Date).ToArray();
         var index = await indexTask;
 
@@ -58,8 +59,8 @@ internal static class DrawdownReport
         for (int i = 0; i < margin.Length; i++)
         {
             var (date, balance) = margin[i];
-            if (balance <= 0 || date > today)
-                throw new InvalidDataException($"无效两融余额或交易日：{Csv.Date(date)}。");
+            if (balance <= 0)
+                throw new InvalidDataException($"无效两融余额：{Csv.Date(date)}。");
 
             // Retain the 2015 warm-up rows for both trading-day windows.
             double peak = 0;

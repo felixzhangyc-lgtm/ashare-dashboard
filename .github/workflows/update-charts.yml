@@ -29,6 +29,11 @@ on:
         options:
           - everything
           - dashboard
+      source:
+        description: '触发来源（manual 手动 / cloudflare-cron 云端准点定时）'
+        required: false
+        default: 'manual'
+        type: string
 
 permissions:
   contents: write
@@ -72,6 +77,7 @@ jobs:
         id: fetch
         env:
           RUN_MODE: ${{ inputs.mode || 'everything' }}
+          DISPATCH_SOURCE: ${{ inputs.source || 'manual' }}
         run: |
           set -o pipefail
           DLL="MarketCharts/bin/Release/net11.0/MarketCharts.dll"

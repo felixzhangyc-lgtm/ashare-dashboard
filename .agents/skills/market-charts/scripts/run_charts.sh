@@ -43,7 +43,7 @@ Commands:
   turnover      Update A-share Market Turnover Rate & Peak/Trough Thermometer chart
   chinext       Update ChiNext Turnover Rate & Peak/Trough Thermometer chart
   all           Run industry, tech, and drawdown (also refreshes dashboard.html)
-  everything    Run all 5 report groups + refresh dashboard.html
+  everything    Run all 6 report groups + refresh dashboard.html
   dashboard     Rebuild interactive outputs/dashboard.html from existing CSV files
 
 Options:

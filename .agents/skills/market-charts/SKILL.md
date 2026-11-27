@@ -25,7 +25,8 @@ description: >-
 - `all`：一次更新前三类图（`industry` + `tech` + `drawdown`）
 - `turnover`：更新 2010-03-31 以来全A流通换手率（沪深成交额 ÷ 全A流通市值）、MA5/MA20、近 5 年历史分位、牛熊/筑底计时器与上证指数顶底温度计图
 - `chinext`：更新 2012-12-03 以来创业板流通换手率（深交所官方锚点校准）、MA5/MA20、近 5 年历史分位、牛熊/筑底计时器与创业板指顶底温度计图
-- `everything`：更新全部五类图表（`industry` + `tech` + `drawdown` + `turnover` + `chinext`），并同步刷新 `outputs/dashboard.html`
+- `regime`：基于两融回撤与创业板换手率 CSV，计算创业板四维牛熊景气度（A-2.0）并重绘仪表盘图
+- `everything`：更新全部六类图表（`industry` + `tech` + `drawdown` + `turnover` + `chinext` + `regime`），并同步刷新 `outputs/dashboard.html`
 - `dashboard`：仅基于现有 CSV 重新生成可缩放交互式网页看板 `outputs/dashboard.html`（依赖本地 `outputs/assets/echarts.min.js`，离线可用）
 
 ### 常用参数
@@ -53,6 +54,9 @@ description: >-
 5. **创业板换手率顶底温度计**（`outputs/chinext-turnover-cycle/`）
    - `chinext_turnover_cycle.png`
    - `chinext_turnover_cycle.csv`
+6. **创业板四维牛熊景气度**（`outputs/regime-score/`）
+   - `chinext_regime_score.png`
+   - `chinext_regime_score.csv`
 
 ## 标准执行流程
 
